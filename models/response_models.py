@@ -14,3 +14,11 @@ class ChatResponse(BaseModel):
 
 class AnalysisResponse(BaseModel):
     findings: str
+
+class RepoMap(BaseModel):
+    root: str
+    modules: List[str]
+    files: List[str]
+    detected_languages: List[str]
+    detected_frameworks: List[str]
+

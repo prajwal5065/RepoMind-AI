@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from utils.logger import get_logger
 from api.upload import router as upload_router
+from api.scanner import router as scanner_router
 
 logger = get_logger(__name__)
 
@@ -17,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(upload_router, prefix="/api")
+app.include_router(scanner_router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
