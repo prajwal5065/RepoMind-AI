@@ -1,12 +1,15 @@
 import os
 import shutil
 from typing import Dict, List
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, BackgroundTasks
 from utils.logger import get_logger
 from utils.file_utils import extract_zip, list_files
 from core.repo_scanner import RepoScanner
 from core.chunker import chunk_file
-from models.response_models import ParseSummary, CodeChunk
+from core.vector_store import VectorStore
+from core.embedder import Embedder
+import time
+from models.response_models import ParseSummary, CodeChunk, IndexSummary
 from config import settings
 
 logger = get_logger(__name__)
@@ -65,7 +68,7 @@ async def upload_repo(session_id: str = Form(...), file: UploadFile = File(...))
                 pass
 
 @router.post("/parse/{session_id}", response_model=ParseSummary)
-async def parse_repo(session_id: str):
+async def parse_repo(session_id: str, background_tasks: BackgroundTasks):
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
     if not os.path.exists(session_dir):
@@ -90,7 +93,10 @@ async def parse_repo(session_id: str):
         SESSION_CHUNKS[session_id] = all_chunks
         logger.info(f"Session {session_id} generated {len(all_chunks)} chunks from {len(repo_map.files)} files")
         
-        # 4. Return summary
+        # 4. Trigger indexing in background
+        background_tasks.add_task(index_repo, session_id)
+        
+        # 5. Return summary
         return ParseSummary(
             total_files=len(repo_map.files),
             total_chunks=len(all_chunks),
@@ -100,4 +106,61 @@ async def parse_repo(session_id: str):
     except Exception as e:
         logger.error(f"Error parsing repository for session {session_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during parsing")
+
+# Global lazy embedder
+embedder_instance = None
+def get_embedder():
+    global embedder_instance
+    if embedder_instance is None:
+        embedder_instance = Embedder()
+    return embedder_instance
+
+@router.post("/index/{session_id}", response_model=IndexSummary)
+async def index_repo(session_id: str):
+    start_time = time.time()
+    
+    try:
+        if VectorStore.index_exists(session_id):
+            logger.info(f"Index for session {session_id} already exists. Skipping.")
+            vs = VectorStore()
+            vs.load_index(session_id)
+            
+            index_dir = os.path.join(settings.FAISS_INDEX_PATH, session_id)
+            size_bytes = os.path.getsize(os.path.join(index_dir, "index.faiss")) + os.path.getsize(os.path.join(index_dir, "chunks.pkl"))
+            
+            return IndexSummary(
+                indexed_chunks=len(vs.chunks),
+                index_size_mb=round(size_bytes / (1024 * 1024), 2),
+                time_taken_seconds=round(time.time() - start_time, 2)
+            )
+            
+        chunks = SESSION_CHUNKS.get(session_id)
+        if not chunks:
+            raise HTTPException(status_code=400, detail="Chunks not found in memory. Call /parse first.")
+            
+        embedder = get_embedder()
+        logger.info(f"Embedding {len(chunks)} chunks for session {session_id}...")
+        embedded_tuples = embedder.embed_chunks(chunks)
+        
+        if not embedded_tuples:
+            raise HTTPException(status_code=400, detail="No chunks to embed.")
+            
+        import numpy as np
+        embeddings = np.array([t[1] for t in embedded_tuples])
+        
+        vs = VectorStore()
+        vs.build_index(chunks, embeddings)
+        vs.save_index(session_id)
+        
+        index_dir = os.path.join(settings.FAISS_INDEX_PATH, session_id)
+        size_bytes = os.path.getsize(os.path.join(index_dir, "index.faiss")) + os.path.getsize(os.path.join(index_dir, "chunks.pkl"))
+        
+        return IndexSummary(
+            indexed_chunks=len(chunks),
+            index_size_mb=round(size_bytes / (1024 * 1024), 2),
+            time_taken_seconds=round(time.time() - start_time, 2)
+        )
+    except Exception as e:
+        logger.error(f"Error building index for session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during indexing")
 

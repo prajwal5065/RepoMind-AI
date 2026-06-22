@@ -30,6 +30,11 @@ class ParseSummary(BaseModel):
     languages_detected: List[str]
     frameworks_detected: List[str]
 
+class IndexSummary(BaseModel):
+    indexed_chunks: int
+    index_size_mb: float
+    time_taken_seconds: float
+
 class ParsedClass(BaseModel):
     name: str
     line_number: int
