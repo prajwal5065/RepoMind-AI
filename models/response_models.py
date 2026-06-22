@@ -24,6 +24,12 @@ class RepoMap(BaseModel):
     detected_frameworks: List[str]
     dependencies: Dict[str, List[str]] = {}
 
+class ParseSummary(BaseModel):
+    total_files: int
+    total_chunks: int
+    languages_detected: List[str]
+    frameworks_detected: List[str]
+
 class ParsedClass(BaseModel):
     name: str
     line_number: int
