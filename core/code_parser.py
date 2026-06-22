@@ -42,6 +42,7 @@ class ASTVisitor(ast.NodeVisitor):
         self.classes.append(ParsedClass(
             name=node.name,
             line_number=node.lineno,
+            line_end=getattr(node, 'end_lineno', node.lineno),
             methods=methods
         ))
         self.generic_visit(node)
@@ -64,7 +65,8 @@ class ASTVisitor(ast.NodeVisitor):
                     self.routes.append(ParsedRoute(
                         decorator=dec_name,
                         function_name=node.name,
-                        line_number=node.lineno
+                        line_number=node.lineno,
+                        line_end=getattr(node, 'end_lineno', node.lineno)
                     ))
                     is_route = True
         
@@ -72,7 +74,8 @@ class ASTVisitor(ast.NodeVisitor):
         # so we have a complete list of functions.
         self.functions.append(ParsedFunction(
             name=node.name,
-            line_number=node.lineno
+            line_number=node.lineno,
+            line_end=getattr(node, 'end_lineno', node.lineno)
         ))
         
         self.generic_visit(node)

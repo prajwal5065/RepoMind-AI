@@ -25,11 +25,14 @@ class RepoMap(BaseModel):
 class ParsedClass(BaseModel):
     name: str
     line_number: int
+    line_end: int
     methods: List[str]
 
 class ParsedFunction(BaseModel):
     name: str
     line_number: int
+    line_end: int
+
 
 class ParsedImport(BaseModel):
     module: str
@@ -39,6 +42,7 @@ class ParsedRoute(BaseModel):
     decorator: str
     function_name: str
     line_number: int
+    line_end: int
 
 class ParsedFile(BaseModel):
     file_path: str
@@ -46,5 +50,10 @@ class ParsedFile(BaseModel):
     classes: List[ParsedClass]
     imports: List[ParsedImport]
     routes: List[ParsedRoute]
+
+class CodeChunk(BaseModel):
+    metadata: ChunkMetadata
+    content: str
+
 
 
