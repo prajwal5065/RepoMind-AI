@@ -22,3 +22,29 @@ class RepoMap(BaseModel):
     detected_languages: List[str]
     detected_frameworks: List[str]
 
+class ParsedClass(BaseModel):
+    name: str
+    line_number: int
+    methods: List[str]
+
+class ParsedFunction(BaseModel):
+    name: str
+    line_number: int
+
+class ParsedImport(BaseModel):
+    module: str
+    names: List[str]
+
+class ParsedRoute(BaseModel):
+    decorator: str
+    function_name: str
+    line_number: int
+
+class ParsedFile(BaseModel):
+    file_path: str
+    functions: List[ParsedFunction]
+    classes: List[ParsedClass]
+    imports: List[ParsedImport]
+    routes: List[ParsedRoute]
+
+
