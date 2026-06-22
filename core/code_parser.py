@@ -1,9 +1,23 @@
 import ast
+import os
 from typing import Optional
 from models.response_models import ParsedFile, ParsedFunction, ParsedClass, ParsedImport, ParsedRoute
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+def resolve_import(module: str, repo_root: str) -> Optional[str]:
+    if not module:
+        return None
+    
+    parts = module.split('.')
+    path = os.path.join(repo_root, *parts)
+    
+    if os.path.exists(path + '.py'):
+        return os.path.relpath(path + '.py', repo_root).replace('\\', '/')
+    elif os.path.isdir(path) and os.path.exists(os.path.join(path, '__init__.py')):
+        return os.path.relpath(os.path.join(path, '__init__.py'), repo_root).replace('\\', '/')
+    return None
 
 class ASTVisitor(ast.NodeVisitor):
     def __init__(self):
@@ -39,11 +53,19 @@ class ASTVisitor(ast.NodeVisitor):
             if isinstance(body_item, ast.FunctionDef) or isinstance(body_item, ast.AsyncFunctionDef):
                 methods.append(body_item.name)
         
+        parent_classes = []
+        for base in node.bases:
+            if isinstance(base, ast.Name):
+                parent_classes.append(base.id)
+            elif isinstance(base, ast.Attribute):
+                parent_classes.append(base.attr)
+        
         self.classes.append(ParsedClass(
             name=node.name,
             line_number=node.lineno,
             line_end=getattr(node, 'end_lineno', node.lineno),
-            methods=methods
+            methods=methods,
+            parent_classes=parent_classes
         ))
         self.generic_visit(node)
 
@@ -81,7 +103,7 @@ class ASTVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def parse_python_file(file_path: str) -> Optional[ParsedFile]:
+def parse_python_file(file_path: str, repo_root: Optional[str] = None) -> Optional[ParsedFile]:
     """Parses a Python file and returns a ParsedFile object with AST details."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -91,12 +113,21 @@ def parse_python_file(file_path: str) -> Optional[ParsedFile]:
         visitor = ASTVisitor()
         visitor.visit(tree)
         
+        local_dependencies = []
+        if repo_root:
+            for imp in visitor.imports:
+                resolved = resolve_import(imp.module, repo_root)
+                if resolved:
+                    local_dependencies.append(resolved)
+            local_dependencies = list(set(local_dependencies))
+        
         return ParsedFile(
             file_path=file_path,
             functions=visitor.functions,
             classes=visitor.classes,
             imports=visitor.imports,
-            routes=visitor.routes
+            routes=visitor.routes,
+            local_dependencies=local_dependencies
         )
     except SyntaxError as e:
         logger.warning(f"Syntax error in {file_path}: {e}")

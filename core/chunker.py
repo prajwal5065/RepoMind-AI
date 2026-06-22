@@ -55,7 +55,8 @@ class Chunker:
                 chunk_type="class",
                 function_name=cls.name,
                 line_start=start,
-                line_end=end
+                line_end=end,
+                parent_classes=cls.parent_classes
             )
             context_header = f"# File: {self.file_path} | Class: {cls.name} | Lines: {start}-{end}\n\n"
             self.chunks.append(CodeChunk(metadata=metadata, content=context_header + content))
