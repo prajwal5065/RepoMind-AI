@@ -1,9 +1,12 @@
 import asyncio
+import hashlib
+import json
 from typing import List, AsyncGenerator
 from openai import AsyncOpenAI
-from models.response_models import CodeChunk, RepoMap
+from models.response_models import CodeChunk, RepoMap, Finding, FindingSeverity
 from config import settings
 from utils.logger import get_logger
+from utils.cache import cache
 
 logger = get_logger(__name__)
 
@@ -106,3 +109,55 @@ Keep your answers accurate, concise, and focused on the code."""
                     yield "\n\n*Error: Stream interrupted due to API connection issues.*"
                     return
                 await asyncio.sleep(2 ** attempt)
+
+    async def explain_findings(self, findings: List[Finding], repo_map: RepoMap) -> List[Finding]:
+        for finding in findings:
+            hash_key = f"explanation:{hashlib.md5(f'{finding.tool}:{finding.file}:{finding.line}:{finding.message}'.encode()).hexdigest()}"
+            cached_explanation = cache.get(hash_key)
+            if cached_explanation:
+                finding.explanation = cached_explanation.get("explanation")
+                finding.fix_suggestion = cached_explanation.get("fix_suggestion")
+                continue
+
+            if finding.severity == FindingSeverity.HIGH:
+                prompt = f"""You are a security and static analysis expert.
+Explain the following high severity finding in plain English, show what bad input could exploit it, and suggest a specific fix with a code example.
+File: {finding.file} (Line {finding.line})
+Tool: {finding.tool}
+Message: {finding.message}
+
+Return the response in valid JSON format:
+{{
+    "explanation": "Brief explanation and exploit scenario",
+    "fix_suggestion": "Code example of the fix"
+}}"""
+                try:
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{"role": "user", "content": prompt}],
+                        response_format={ "type": "json_object" }
+                    )
+                    result = json.loads(response.choices[0].message.content)
+                    finding.explanation = result.get("explanation")
+                    finding.fix_suggestion = result.get("fix_suggestion")
+                    cache.set(hash_key, {"explanation": finding.explanation, "fix_suggestion": finding.fix_suggestion})
+                except Exception as e:
+                    logger.error(f"Error explaining HIGH finding: {e}")
+
+            elif finding.severity in [FindingSeverity.MEDIUM, FindingSeverity.LOW]:
+                prompt = f"""You are a security and static analysis expert.
+Explain this finding in exactly 1 brief sentence (no code example).
+File: {finding.file} (Line {finding.line})
+Tool: {finding.tool}
+Message: {finding.message}"""
+                try:
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    finding.explanation = response.choices[0].message.content.strip()
+                    cache.set(hash_key, {"explanation": finding.explanation})
+                except Exception as e:
+                    logger.error(f"Error explaining MEDIUM/LOW finding: {e}")
+
+        return findings

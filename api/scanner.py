@@ -1,4 +1,5 @@
 import os
+import re
 from fastapi import APIRouter, HTTPException
 from core.repo_scanner import RepoScanner
 from models.response_models import RepoMap
@@ -9,8 +10,11 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 @router.get("/repo-map/{session_id}", response_model=RepoMap)
-async def get_repo_map(session_id: str):
+def get_repo_map(session_id: str):
     """Returns the RepoMap for a given session."""
+    if not re.match(r'^[\w-]+$', session_id):
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
     if not os.path.exists(session_dir):
@@ -26,8 +30,11 @@ async def get_repo_map(session_id: str):
         raise HTTPException(status_code=500, detail="Internal server error during repository scanning")
 
 @router.get("/dependencies/{session_id}")
-async def get_dependencies(session_id: str):
+def get_dependencies(session_id: str):
     """Returns the dependency graph for a given session."""
+    if not re.match(r'^[\w-]+$', session_id):
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
     if not os.path.exists(session_dir):
