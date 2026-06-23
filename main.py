@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from utils.logger import get_logger
+from api.upload import router as upload_router
+from api.scanner import router as scanner_router
 from api import upload, scanner, chat
 
 logger = get_logger(__name__)
