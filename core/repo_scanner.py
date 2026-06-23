@@ -1,6 +1,7 @@
 import os
 from typing import List, Set
 from models.response_models import RepoMap
+from core.code_parser import parse_python_file
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -52,13 +53,14 @@ class RepoScanner:
 
     def scan(self) -> RepoMap:
         logger.info(f"Starting scan of repository at {self.root_dir}")
+        dependencies = {}
         for root, dirs, files in os.walk(self.root_dir):
-            rel_root = os.path.relpath(root, self.root_dir)
+            rel_root = os.path.relpath(root, self.root_dir).replace('\\', '/')
             if rel_root != '.':
                 self.modules.add(rel_root)
 
             for file in files:
-                rel_path = os.path.relpath(os.path.join(root, file), self.root_dir)
+                rel_path = os.path.relpath(os.path.join(root, file), self.root_dir).replace('\\', '/')
                 self.files.append(rel_path)
                 
                 # Check for entry points
@@ -74,12 +76,19 @@ class RepoScanner:
                 if file in FRAMEWORK_INDICATORS:
                     self._check_framework_file(os.path.join(root, file), file)
 
+                # Parse Dependencies
+                if ext == '.py':
+                    parsed = parse_python_file(os.path.join(root, file), repo_root=self.root_dir)
+                    if parsed and parsed.local_dependencies:
+                        dependencies[rel_path] = parsed.local_dependencies
+
         return RepoMap(
             root=self.root_dir,
             modules=sorted(list(self.modules)),
             files=sorted(self.files),
             detected_languages=sorted(list(self.detected_languages)),
-            detected_frameworks=sorted(list(self.detected_frameworks))
+            detected_frameworks=sorted(list(self.detected_frameworks)),
+            dependencies=dependencies
         )
 
     def _check_framework_file(self, filepath: str, filename: str):

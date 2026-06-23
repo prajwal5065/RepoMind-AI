@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 class ChunkMetadata(BaseModel):
     file_path: str
@@ -7,6 +7,7 @@ class ChunkMetadata(BaseModel):
     function_name: Optional[str] = None
     line_start: int
     line_end: int
+    parent_classes: Optional[List[str]] = None
 
 class ChatResponse(BaseModel):
     answer: str
@@ -21,4 +22,53 @@ class RepoMap(BaseModel):
     files: List[str]
     detected_languages: List[str]
     detected_frameworks: List[str]
+    dependencies: Dict[str, List[str]] = {}
+
+class ParseSummary(BaseModel):
+    total_files: int
+    total_chunks: int
+    languages_detected: List[str]
+    frameworks_detected: List[str]
+
+class IndexSummary(BaseModel):
+    indexed_chunks: int
+    index_size_mb: float
+    time_taken_seconds: float
+
+class ParsedClass(BaseModel):
+    name: str
+    line_number: int
+    line_end: int
+    methods: List[str]
+    parent_classes: List[str] = []
+
+class ParsedFunction(BaseModel):
+    name: str
+    line_number: int
+    line_end: int
+
+
+class ParsedImport(BaseModel):
+    module: str
+    names: List[str]
+
+class ParsedRoute(BaseModel):
+    decorator: str
+    function_name: str
+    line_number: int
+    line_end: int
+
+class ParsedFile(BaseModel):
+    file_path: str
+    functions: List[ParsedFunction]
+    classes: List[ParsedClass]
+    imports: List[ParsedImport]
+    routes: List[ParsedRoute]
+    local_dependencies: List[str] = []
+
+class CodeChunk(BaseModel):
+    metadata: ChunkMetadata
+    content: str
+
+
 
