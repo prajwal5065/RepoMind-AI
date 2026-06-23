@@ -7,3 +7,8 @@ python-multipart
 sentence-transformers
 faiss-cpu
 openai
+pylint
+flake8
+mypy
+bandit
+semgrep

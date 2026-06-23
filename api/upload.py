@@ -11,6 +11,7 @@ from core.embedder import Embedder
 import time
 from models.response_models import ParseSummary, CodeChunk, IndexSummary
 from config import settings
+from utils.cache import cache
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -46,6 +47,9 @@ async def upload_repo(session_id: str = Form(...), file: UploadFile = File(...))
         
         extract_to = os.path.join(upload_dir, "extracted")
         extract_zip(zip_path, extract_to)
+        
+        # Clear cache for this session
+        cache.invalidate_session(session_id)
         
         files = list_files(extract_to)
         file_count = len(files)

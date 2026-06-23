@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
+from enum import Enum
 
 class ChunkMetadata(BaseModel):
     file_path: str
@@ -71,4 +72,39 @@ class CodeChunk(BaseModel):
     content: str
 
 
+class FindingSeverity(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
 
+class Finding(BaseModel):
+    tool: str
+    file: str
+    line: int
+    severity: FindingSeverity
+    message: str
+    severity_score: Optional[int] = None
+    explanation: Optional[str] = None
+    fix_suggestion: Optional[str] = None
+
+class ModuleDoc(BaseModel):
+    module_path: str
+    purpose: str
+    public_functions: List[Dict[str, str]]
+    dependencies: List[str]
+
+class APIDoc(BaseModel):
+    method: str
+    path: str
+    expected_input: str
+    expected_output: str
+    description: str
+
+class ProjectDoc(BaseModel):
+    tech_stack: str
+    architecture_summary: str
+    entry_points: List[str]
+    modules: List[ModuleDoc]
+    api_routes: List[APIDoc]
