@@ -10,7 +10,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class VectorStore:
-    def __init__(self, embedding_dim: int = 384):
+    def __init__(self, embedding_dim: int = 3072):
         self.embedding_dim = embedding_dim
         # IndexFlatIP uses Inner Product (equivalent to Cosine Similarity when vectors are normalized)
         self.index = faiss.IndexFlatIP(embedding_dim)
@@ -67,7 +67,11 @@ class VectorStore:
             return False
             
         try:
-            self.index = faiss.read_index(index_path)
+            loaded_index = faiss.read_index(index_path)
+            if loaded_index.d != self.embedding_dim:
+                logger.warning(f"Dimension mismatch for {session_id}: expected {self.embedding_dim}, got {loaded_index.d}. Index needs rebuilding.")
+                return False
+            self.index = loaded_index
             with open(chunks_path, 'rb') as f:
                 self.chunks = pickle.load(f)
             logger.info(f"Loaded FAISS index for session {session_id} with {self.index.ntotal} vectors")

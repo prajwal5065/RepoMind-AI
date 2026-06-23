@@ -4,7 +4,7 @@ import uvicorn
 from utils.logger import get_logger
 from api.upload import router as upload_router
 from api.scanner import router as scanner_router
-from api import upload, scanner, chat, analysis, docs
+from api import upload, scanner, chat, analysis, docs, clone_repo
 from utils.cache import cache
 
 logger = get_logger(__name__)
@@ -24,6 +24,7 @@ app.include_router(scanner.router, prefix="/api", tags=["Repository Scanning"])
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(analysis.router, prefix="/api", tags=["Analysis & Security"])
 app.include_router(docs.router, prefix="/api", tags=["Documentation"])
+app.include_router(clone_repo.router, prefix="/api", tags=["Upload & Processing"])
 
 @app.get("/health")
 async def health_check():

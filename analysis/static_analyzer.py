@@ -12,14 +12,16 @@ class StaticAnalyzer:
     def __init__(self, repo_path: str):
         self.repo_path = repo_path
 
-    def run_pylint(self, file_path: str) -> List[Finding]:
+    def run_pylint(self) -> List[Finding]:
         findings = []
         try:
             result = subprocess.run(
-                ["pylint", file_path, "-f", "json"],
+                ["pylint", ".", "-f", "json", "--recursive=y", "--ignore=venv,node_modules,.git"],
                 cwd=self.repo_path,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=60,
+                stdin=subprocess.DEVNULL
             )
             # Pylint outputs JSON to stdout even when it returns non-zero
             if result.stdout:
@@ -36,23 +38,25 @@ class StaticAnalyzer:
                     if severity in [FindingSeverity.WARNING, FindingSeverity.ERROR]:
                         findings.append(Finding(
                             tool="pylint",
-                            file=item.get("path", file_path),
+                            file=item.get("path", ""),
                             line=item.get("line", 0),
                             severity=severity,
                             message=f"{item.get('symbol', '')}: {item.get('message', '')}"
                         ))
         except Exception as e:
-            logger.error(f"Error running pylint on {file_path}: {e}")
+            logger.error(f"Error running pylint: {e}")
         return findings
 
-    def run_flake8(self, file_path: str) -> List[Finding]:
+    def run_flake8(self) -> List[Finding]:
         findings = []
         try:
             result = subprocess.run(
-                ["flake8", file_path],
+                ["flake8", ".", "--exclude=venv,node_modules,.git"],
                 cwd=self.repo_path,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=60,
+                stdin=subprocess.DEVNULL
             )
             if result.stdout:
                 for line in result.stdout.splitlines():
@@ -69,17 +73,19 @@ class StaticAnalyzer:
                             message=message
                         ))
         except Exception as e:
-            logger.error(f"Error running flake8 on {file_path}: {e}")
+            logger.error(f"Error running flake8: {e}")
         return findings
 
-    def run_mypy(self, file_path: str) -> List[Finding]:
+    def run_mypy(self) -> List[Finding]:
         findings = []
         try:
             result = subprocess.run(
-                ["mypy", file_path, "--show-error-codes", "--no-error-summary"],
+                ["mypy", ".", "--show-error-codes", "--no-error-summary", "--exclude", "venv|node_modules|\\.git"],
                 cwd=self.repo_path,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=60,
+                stdin=subprocess.DEVNULL
             )
             if result.stdout:
                 for line in result.stdout.splitlines():
@@ -99,20 +105,12 @@ class StaticAnalyzer:
                                 message=message
                             ))
         except Exception as e:
-            logger.error(f"Error running mypy on {file_path}: {e}")
+            logger.error(f"Error running mypy: {e}")
         return findings
 
     def analyze_repo(self, session_id: str) -> List[Finding]:
         all_findings = []
-        for root, _, files in os.walk(self.repo_path):
-            # Exclude virtual environments or large node_modules if present
-            if 'venv' in root or 'node_modules' in root or '.git' in root:
-                continue
-            for file in files:
-                if file.endswith('.py'):
-                    full_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(full_path, self.repo_path)
-                    all_findings.extend(self.run_pylint(rel_path))
-                    all_findings.extend(self.run_flake8(rel_path))
-                    all_findings.extend(self.run_mypy(rel_path))
+        all_findings.extend(self.run_pylint())
+        all_findings.extend(self.run_flake8())
+        all_findings.extend(self.run_mypy())
         return all_findings

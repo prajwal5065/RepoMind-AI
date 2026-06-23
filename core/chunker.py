@@ -2,6 +2,10 @@ import os
 from typing import List
 from models.response_models import CodeChunk, ChunkMetadata
 from core.code_parser import parse_python_file
+from core.repo_scanner import BINARY_EXTENSIONS
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class Chunker:
     def __init__(self, file_path: str):
@@ -11,10 +15,27 @@ class Chunker:
     def chunk(self) -> List[CodeChunk]:
         if not os.path.exists(self.file_path):
             return []
-            
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            
+
+        # Skip binary file types entirely
+        _, ext = os.path.splitext(self.file_path)
+        if ext.lower() in BINARY_EXTENSIONS:
+            return []
+
+        # Safe read: try UTF-8 first, then latin-1 as a lossless fallback,
+        # so we never crash on files with non-UTF-8 bytes.
+        lines = None
+        for encoding in ('utf-8', 'latin-1'):
+            try:
+                with open(self.file_path, 'r', encoding=encoding) as f:
+                    lines = f.readlines()
+                break
+            except (UnicodeDecodeError, OSError) as e:
+                logger.debug(f"Could not read {self.file_path} with {encoding}: {e}")
+
+        if lines is None:
+            logger.warning(f"Skipping unreadable file: {self.file_path}")
+            return []
+
         total_lines = len(lines)
         
         # Rule: for small files (<50 lines) keep entire file as one chunk

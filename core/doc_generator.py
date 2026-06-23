@@ -1,4 +1,5 @@
 import json
+from google.genai import types
 from models.response_models import RepoMap, ProjectDoc, ModuleDoc, APIDoc
 from core.llm_client import LLMClient
 from utils.logger import get_logger
@@ -16,19 +17,21 @@ Languages: {repo_map.detected_languages}
 Frameworks: {repo_map.detected_frameworks}
 Files: {repo_map.files}
 
-Return valid JSON format matching this structure:
+Return valid JSON format matching this structure EXACTLY:
 {{
     "tech_stack": "Summary of languages and frameworks",
     "architecture_summary": "High-level description of how the project is structured",
     "entry_points": ["list of main entry point files"]
 }}"""
         try:
-            response = await self.llm_client.client.chat.completions.create(
+            response = await self.llm_client.client.aio.models.generate_content(
                 model=self.llm_client.model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={ "type": "json_object" }
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                )
             )
-            data = json.loads(response.choices[0].message.content)
+            data = json.loads(response.text)
             
             return ProjectDoc(
                 tech_stack=data.get("tech_stack", ""),
@@ -44,7 +47,8 @@ Return valid JSON format matching this structure:
     async def generate_module_docs(self, module_path: str, file_list: list) -> ModuleDoc:
         prompt = f"""You are an expert technical writer.
 Summarize the purpose of the following module and list its likely public functions based on these files: {file_list}.
-Return valid JSON format matching this structure:
+
+Return valid JSON format matching this structure EXACTLY:
 {{
     "purpose": "2-3 sentences explaining the module's purpose",
     "public_functions": [
@@ -53,12 +57,14 @@ Return valid JSON format matching this structure:
     "dependencies": ["list of internal or external dependencies"]
 }}"""
         try:
-            response = await self.llm_client.client.chat.completions.create(
+            response = await self.llm_client.client.aio.models.generate_content(
                 model=self.llm_client.model,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={ "type": "json_object" }
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                )
             )
-            data = json.loads(response.choices[0].message.content)
+            data = json.loads(response.text)
             return ModuleDoc(
                 module_path=module_path,
                 purpose=data.get("purpose", ""),

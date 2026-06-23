@@ -49,3 +49,22 @@ def get_dependencies(session_id: str):
         logger.error(f"Error building dependency graph for session {session_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get("/file/{session_id}")
+def get_file_content(session_id: str, path: str):
+    session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
+    file_path = os.path.join(session_dir, path)
+    
+    # Ensure no path traversal
+    if not os.path.normpath(file_path).startswith(os.path.normpath(session_dir)):
+        raise HTTPException(status_code=403, detail="Access denied")
+        
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"content": content}
+    except Exception as e:
+        logger.error(f"Error reading file {file_path}: {e}")
+        raise HTTPException(status_code=500, detail="Could not read file")
