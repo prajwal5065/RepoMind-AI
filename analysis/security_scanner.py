@@ -16,10 +16,12 @@ class SecurityScanner:
         findings = []
         try:
             result = subprocess.run(
-                ["bandit", "-r", ".", "-f", "json"],
+                ["bandit", "-r", ".", "-f", "json", "-x", "venv,node_modules,.git"],
                 cwd=self.repo_path,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=120,
+                stdin=subprocess.DEVNULL
             )
             if result.stdout:
                 try:
@@ -54,11 +56,17 @@ class SecurityScanner:
     def run_semgrep(self) -> List[Finding]:
         findings = []
         try:
+            # Disable metrics to prevent hanging prompts, and add timeout
+            env = os.environ.copy()
+            env["SEMGREP_SEND_METRICS"] = "off"
             result = subprocess.run(
-                ["semgrep", "scan", "--config=auto", "--json"],
+                ["semgrep", "scan", "--config=auto", "--json", "--exclude=venv", "--exclude=node_modules", "--exclude=.git"],
                 cwd=self.repo_path,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=180,
+                stdin=subprocess.DEVNULL,
+                env=env
             )
             if result.stdout:
                 try:

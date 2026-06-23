@@ -4,9 +4,8 @@ python-dotenv
 pydantic
 pydantic-settings
 python-multipart
-sentence-transformers
 faiss-cpu
-openai
+google-genai
 pylint
 flake8
 mypy

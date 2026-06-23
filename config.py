@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = "your_openai_api_key_here"
+    GEMINI_API_KEY: str = "your_gemini_api_key_here"
     FAISS_INDEX_PATH: str = "data/faiss_index"
     UPLOAD_DIR: str = "data/uploads"
 

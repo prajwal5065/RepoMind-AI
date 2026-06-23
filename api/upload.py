@@ -88,10 +88,14 @@ async def parse_repo(session_id: str, background_tasks: BackgroundTasks):
         all_chunks = []
         for file in repo_map.files:
             file_path = os.path.join(session_dir, file)
-            # Run chunker on each file
-            chunks = chunk_file(file_path)
-            logger.info(f"File {file} produced {len(chunks)} chunks")
-            all_chunks.extend(chunks)
+            try:
+                chunks = chunk_file(file_path)
+                if chunks:
+                    logger.info(f"File {file} produced {len(chunks)} chunks")
+                all_chunks.extend(chunks)
+            except Exception as e:
+                logger.warning(f"Skipping {file} due to chunking error: {e}")
+                continue
             
         # 3. Store in memory
         SESSION_CHUNKS[session_id] = all_chunks

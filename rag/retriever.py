@@ -11,6 +11,19 @@ class Retriever:
     def __init__(self, embedder: Embedder):
         self.embedder = embedder
 
+    @staticmethod
+    def is_structure_query(query: str) -> bool:
+        q_lower = query.lower()
+        keywords = [
+            "repo structure",
+            "repository structure",
+            "folder structure",
+            "project tree",
+            "show files",
+            "list files"
+        ]
+        return any(kw in q_lower for kw in keywords)
+
     def retrieve(self, session_id: str, question: str, repo_map: RepoMap, top_k: int = 7) -> List[CodeChunk]:
         vs = VectorStore()
         if not vs.load_index(session_id):
