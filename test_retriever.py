@@ -75,5 +75,79 @@ def test_keyword_and_dependency_boost():
     finally:
         rag.retriever.VectorStore = original_vs
 
+def test_is_overview_query():
+    print("--- Testing Overview Query Classifier ---")
+    assert Retriever.is_overview_query("What is this project?") == True
+    assert Retriever.is_overview_query("Give me project details") == True
+    assert Retriever.is_overview_query("Explain this repository") == True
+    assert Retriever.is_overview_query("What does this repo do?") == True
+    assert Retriever.is_overview_query("Repository overview") == True
+    assert Retriever.is_overview_query("Project summary") == True
+    assert Retriever.is_overview_query("Explain system design") == True
+    assert Retriever.is_overview_query("How does auth work?") == False
+    assert Retriever.is_overview_query("Fix the bug in login") == False
+    print("Overview Query Classifier tests passed!\n")
+
+def test_retrieve_overview():
+    print("--- Testing Retriever Overview Logic ---")
+    
+    repo_map = RepoMap(
+        root="/mock",
+        modules=["auth", "utils", "db"],
+        files=["auth.py", "utils.py", "db.py", "README.md", "main.py"],
+        detected_languages=["Python"],
+        detected_frameworks=[],
+        dependencies={},
+        entry_points=["main.py"]
+    )
+    
+    chunk_readme = CodeChunk(
+        metadata=ChunkMetadata(file_path="README.md", chunk_type="text_block", line_start=1, line_end=10),
+        content="# Project Title"
+    )
+    chunk_main = CodeChunk(
+        metadata=ChunkMetadata(file_path="main.py", chunk_type="module", line_start=1, line_end=5),
+        content="import os"
+    )
+    chunk_auth = CodeChunk(
+        metadata=ChunkMetadata(file_path="auth.py", chunk_type="function", line_start=1, line_end=5),
+        content="def login(): pass"
+    )
+    chunk_env = CodeChunk(
+        metadata=ChunkMetadata(file_path=".env.example", chunk_type="text_block", line_start=1, line_end=5),
+        content="VAR=1"
+    )
+    
+    import rag.retriever
+    mock_vs = MockVectorStore()
+    mock_vs.chunks = [chunk_readme, chunk_main, chunk_auth, chunk_env]
+    
+    # FAISS returns .env and auth.py as semantic matches
+    def mock_search(query_emb, top_k):
+        return [chunk_env, chunk_auth]
+    mock_vs.search = mock_search
+    
+    original_vs = rag.retriever.VectorStore
+    rag.retriever.VectorStore = lambda: mock_vs
+    
+    try:
+        retriever = Retriever(MockEmbedder())
+        results = retriever.retrieve_overview("test_session", "What is this project?", repo_map, top_k=5)
+        
+        print("Results order:")
+        for r in results:
+            print(f" - {r.metadata.file_path}")
+            
+        # Should prioritize README and entry point (main.py), followed by FAISS
+        assert results[0].metadata.file_path == "README.md", "Did not fetch README"
+        assert results[1].metadata.file_path == "main.py", "Did not fetch entry point"
+        assert len(results) == 4, "Should have 4 unique chunks"
+        
+        print("Retriever Overview tests passed!\n")
+    finally:
+        rag.retriever.VectorStore = original_vs
+
 if __name__ == "__main__":
     test_keyword_and_dependency_boost()
+    test_is_overview_query()
+    test_retrieve_overview()

@@ -21,6 +21,23 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 # In-memory storage for chunks keyed by session_id
 SESSION_CHUNKS: Dict[str, List[CodeChunk]] = {}
 
+@router.delete('/session/{session_id}')
+async def delete_session(session_id: str):
+    import re
+    if not re.match(r'^[\w-]+$', session_id):
+        raise HTTPException(400, 'Invalid session ID')
+        
+    upload_dir = os.path.join(settings.UPLOAD_DIR, session_id)
+    index_dir = os.path.join(settings.FAISS_INDEX_PATH, session_id)
+    
+    shutil.rmtree(upload_dir, ignore_errors=True)
+    shutil.rmtree(index_dir, ignore_errors=True)
+    
+    cache.invalidate_session(session_id)
+    SESSION_CHUNKS.pop(session_id, None)
+    
+    return {'status': 'deleted', 'session_id': session_id}
+
 @router.post("/upload")
 async def upload_repo(session_id: str = Form(...), file: UploadFile = File(...)):
     if not file.filename.endswith('.zip'):
@@ -101,8 +118,7 @@ async def parse_repo(session_id: str, background_tasks: BackgroundTasks):
         SESSION_CHUNKS[session_id] = all_chunks
         logger.info(f"Session {session_id} generated {len(all_chunks)} chunks from {len(repo_map.files)} files")
         
-        # 4. Trigger indexing in background
-        background_tasks.add_task(index_repo, session_id)
+        # 4. Trigger indexing in background (REMOVED: Frontend calls /index explicitly)
         
         # 5. Return summary
         return ParseSummary(
@@ -160,8 +176,30 @@ async def index_repo(session_id: str):
         vs.build_index(chunks, embeddings)
         vs.save_index(session_id)
         
+        # Build and cache architecture summary
+        try:
+            from core.llm_client import LLMClient
+            session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
+            repo_map_key = f"{session_id}:repo_map"
+            repo_map = cache.get(repo_map_key)
+            if not repo_map:
+                scanner = RepoScanner(session_dir)
+                repo_map = scanner.scan()
+                cache.set(repo_map_key, repo_map)
+                
+            llm_client = LLMClient()
+            logger.info(f"Building architecture summary for session {session_id}...")
+            arch_summary = await llm_client.build_architecture_summary(repo_map)
+            cache.set(f'{session_id}:arch_summary', arch_summary)
+            logger.info("Architecture summary built and cached successfully.")
+        except Exception as arch_e:
+            logger.warning(f"Failed to build architecture summary: {arch_e}")
+        
         index_dir = os.path.join(settings.FAISS_INDEX_PATH, session_id)
         size_bytes = os.path.getsize(os.path.join(index_dir, "index.faiss")) + os.path.getsize(os.path.join(index_dir, "chunks.pkl"))
+        
+        # Free memory after index is saved
+        SESSION_CHUNKS.pop(session_id, None)
         
         return IndexSummary(
             indexed_chunks=len(chunks),

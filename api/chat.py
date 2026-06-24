@@ -49,10 +49,10 @@ class ChatRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers (sync — to be called via run_in_threadpool)
 # ---------------------------------------------------------------------------
-def _load_context(session_id: str, message: str, is_structure: bool):
+def _load_context(session_id: str, message: str, is_overview: bool):
     """
     Synchronous: scan repo, embed query, retrieve top-k chunks.
-    Returns (context_chunks, repo_map) or raises RuntimeError.
+    Returns (context_chunks, repo_map, readme_chunk) or raises RuntimeError.
     """
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     if not os.path.exists(session_dir):
@@ -67,15 +67,20 @@ def _load_context(session_id: str, message: str, is_structure: bool):
         repo_map = scanner.scan()
         cache.set(repo_map_key, repo_map)
 
-    # If it's just asking for structure, we don't need FAISS vector search
-    if is_structure:
-        return [], repo_map
+    if is_overview:
+        from core.vector_store import VectorStore
+        vs = VectorStore()
+        readme_chunk = None
+        if vs.load_index(session_id):
+            readme_chunk = next((c for c in vs.chunks if 'readme.md' in c.metadata.file_path.lower()), None)
+        return [], repo_map, readme_chunk
 
     embedder = get_embedder()
     retriever = Retriever(embedder)
+    
     context_chunks = retriever.retrieve(session_id, message, repo_map, top_k=7)
 
-    return context_chunks, repo_map
+    return context_chunks, repo_map, None
 
 
 # ---------------------------------------------------------------------------
@@ -101,12 +106,12 @@ async def chat_endpoint(request: ChatRequest):
         logger.warning(f"Session directory not found: {session_dir}")
         raise HTTPException(status_code=404, detail="Session not found. Upload or clone a repository first.")
 
-    is_structure = Retriever.is_structure_query(request.message)
+    is_overview = Retriever.is_overview_query(request.message)
 
     # ── Step 2: retrieve context in a thread (blocking I/O + CPU) ────────
     try:
-        context_chunks, repo_map = await run_in_threadpool(
-            _load_context, request.session_id, request.message, is_structure
+        context_chunks, repo_map, readme_chunk = await run_in_threadpool(
+            _load_context, request.session_id, request.message, is_overview
         )
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -114,7 +119,7 @@ async def chat_endpoint(request: ChatRequest):
         logger.error(f"Context loading failed for session {request.session_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to load repository context.")
 
-    if not is_structure and not context_chunks:
+    if not is_overview and not context_chunks:
         raise HTTPException(
             status_code=400,
             detail="No indexed chunks found. Run /parse and /index on this session first."
@@ -125,11 +130,11 @@ async def chat_endpoint(request: ChatRequest):
 
     async def generate():
         try:
-            if is_structure:
-                async for token in llm.answer_structure_stream(request.message, repo_map):
+            if is_overview:
+                async for token in llm.answer_overview_stream(request.message, repo_map, readme_chunk):
                     yield token
             else:
-                async for token in llm.answer_stream(request.message, context_chunks, repo_map):
+                async for token in llm.answer_stream(request.message, context_chunks, repo_map, session_id=request.session_id):
                     yield token
         except Exception as e:
             logger.error(f"Streaming error for session {request.session_id}: {e}")

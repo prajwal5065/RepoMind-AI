@@ -7,22 +7,31 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+FILE_PRIORITY = {
+    'main.py': 10, 'app.py': 10,
+    'api/': 8, 'core/': 8, 'rag/': 8, 'analysis/': 7,
+    'models/': 5, 'utils/': 4,
+    '.env.example': -20, '.gitignore': -20,
+    'README': -5, # README is useful but not code
+}
+
 class Retriever:
     def __init__(self, embedder: Embedder):
         self.embedder = embedder
 
     @staticmethod
-    def is_structure_query(query: str) -> bool:
-        q_lower = query.lower()
-        keywords = [
-            "repo structure",
-            "repository structure",
-            "folder structure",
-            "project tree",
-            "show files",
-            "list files"
+    def is_overview_query(query: str) -> bool:
+        OVERVIEW_KEYWORDS = [
+            'what is this', 'what does this', 'explain this repo',
+            'explain the repo', 'explain this project', 'what is the project',
+            'project overview', 'repo overview', 'give me an overview',
+            'what does this codebase', 'project details', 'project purpose',
+            'repo structure', 'repository structure', 'folder structure',
+            'project tree', 'show files', 'list files', 'architecture',
+            'how is this structured', 'what are the main components',
         ]
-        return any(kw in q_lower for kw in keywords)
+        q_lower = query.lower()
+        return any(kw in q_lower for kw in OVERVIEW_KEYWORDS)
 
     def retrieve(self, session_id: str, question: str, repo_map: RepoMap, top_k: int = 7) -> List[CodeChunk]:
         vs = VectorStore()
@@ -43,6 +52,11 @@ class Retriever:
         scored_candidates = []
         for i, chunk in enumerate(candidates):
             score = 15 - i # base semantic score
+            
+            for pattern, weight in FILE_PRIORITY.items():
+                if pattern in chunk.metadata.file_path:
+                    score += weight
+                    break
             
             # Boost if file name mentioned
             file_name = os.path.basename(chunk.metadata.file_path).lower()

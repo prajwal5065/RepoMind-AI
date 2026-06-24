@@ -12,6 +12,7 @@ export default function Analysis() {
   const [analysis, setAnalysis] = useState([]);
   const [docs, setDocs] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!session) return;
@@ -19,14 +20,16 @@ export default function Analysis() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         const [analysisData, docsData] = await Promise.all([
-          getAnalysis(session).catch(() => []),
+          getAnalysis(session),
           getDocs(session).catch(() => null)
         ]);
         setAnalysis(analysisData || []);
         setDocs(docsData);
       } catch (err) {
         console.error(err);
+        setError('Analysis failed. Check backend logs.');
       } finally {
         setLoading(false);
       }
@@ -65,6 +68,10 @@ export default function Analysis() {
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center text-display-sm">LOADING ANALYSIS...</div>;
+  }
+
+  if (error) {
+    return <div className="flex-1 flex items-center justify-center text-display-sm text-[var(--color-m-red)]">{error}</div>;
   }
 
   return (

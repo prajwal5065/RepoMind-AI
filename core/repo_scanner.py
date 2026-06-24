@@ -125,7 +125,8 @@ class RepoScanner:
             files=sorted(self.files),
             detected_languages=sorted(list(self.detected_languages)),
             detected_frameworks=sorted(list(self.detected_frameworks)),
-            dependencies=dependencies
+            dependencies=dependencies,
+            entry_points=sorted(self.entry_points)
         )
 
     def _check_framework_file(self, filepath: str, filename: str):

@@ -7,6 +7,8 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+NON_PYTHON_EXTS = {'.js','.ts','.jsx','.tsx','.java','.go','.rb','.php','.cs','.rs'}
+
 class Chunker:
     def __init__(self, file_path: str):
         self.file_path = file_path
@@ -54,9 +56,13 @@ class Chunker:
             self.chunks.append(CodeChunk(metadata=metadata, content=context_header + content))
             return self.chunks
 
-        parsed_file = parse_python_file(self.file_path)
+        parsed_file = None
+        if ext.lower() not in NON_PYTHON_EXTS:
+            parsed_file = parse_python_file(self.file_path)
+            
         if not parsed_file:
-            return []
+            # Fallback: Sliding window chunking for non-Python or unparseable files
+            return self._chunk_sliding_window(lines, window=60, stride=40)
 
         # Rule: chunk by CLASS (class + all its methods = one chunk)
         # We track lines that are chunked so we don't extract methods as standalone chunks
@@ -106,9 +112,26 @@ class Chunker:
             
             for i in range(start, end + 1):
                 chunked_lines.add(i)
-
         return self.chunks
 
+    def _chunk_sliding_window(self, lines: List[str], window: int = 60, stride: int = 40) -> List[CodeChunk]:
+        chunks = []
+        for start in range(0, len(lines), stride):
+            end = min(start + window, len(lines))
+            content = ''.join(lines[start:end])
+            meta = ChunkMetadata(
+                file_path=self.file_path,
+                chunk_type='window',
+                function_name=None,
+                line_start=start+1,
+                line_end=end
+            )
+            context_header = f"# File: {self.file_path} | Module: window | Lines: {start+1}-{end}\n\n"
+            chunks.append(CodeChunk(metadata=meta, content=context_header + content))
+            if end == len(lines):
+                break
+        self.chunks.extend(chunks)
+        return self.chunks
 def chunk_file(file_path: str) -> List[CodeChunk]:
     chunker = Chunker(file_path)
     return chunker.chunk()
