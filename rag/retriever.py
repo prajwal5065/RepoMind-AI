@@ -24,10 +24,10 @@ class Retriever:
         OVERVIEW_KEYWORDS = [
             'what is this', 'what does this', 'explain this repo',
             'explain the repo', 'explain this project', 'what is the project',
-            'project overview', 'repo overview', 'give me an overview',
-            'what does this codebase', 'project details', 'project purpose',
+            'project overview', 'repo overview', 'repository overview', 'give me an overview',
+            'what does this codebase', 'project details', 'project summary', 'project purpose',
             'repo structure', 'repository structure', 'folder structure',
-            'project tree', 'show files', 'list files', 'architecture',
+            'project tree', 'show files', 'list files', 'architecture', 'explain system design',
             'how is this structured', 'what are the main components',
         ]
         q_lower = query.lower()
@@ -108,3 +108,33 @@ class Retriever:
                 
         # Step 5: Return top 7 chunks
         return reranked_chunks[:top_k]
+
+    def retrieve_overview(self, session_id: str, question: str, repo_map: RepoMap, top_k: int = 5) -> List[CodeChunk]:
+        """Special retrieval logic for overview queries: Force includes README and entry points."""
+        vs = VectorStore()
+        if not vs.load_index(session_id):
+            return []
+            
+        overview_chunks = []
+        existing_ids = set()
+        
+        # 1. Fetch README and Entry Points
+        for chunk in vs.chunks:
+            fpath = chunk.metadata.file_path
+            if fpath.lower() == 'readme.md' or fpath in repo_map.entry_points:
+                chunk_id = f"{fpath}:{chunk.metadata.line_start}"
+                if chunk_id not in existing_ids:
+                    overview_chunks.append(chunk)
+                    existing_ids.add(chunk_id)
+                    
+        # 2. Add FAISS semantic matches
+        query_embedding = self.embedder.embed_query(question)
+        candidates = vs.search(query_embedding, top_k=top_k)
+        
+        for chunk in candidates:
+            chunk_id = f"{chunk.metadata.file_path}:{chunk.metadata.line_start}"
+            if chunk_id not in existing_ids:
+                overview_chunks.append(chunk)
+                existing_ids.add(chunk_id)
+                
+        return overview_chunks[:top_k]

@@ -134,6 +134,10 @@ Keep your answers accurate, concise, and focused on the code."""
                 )
                 return response.text
             except Exception as e:
+                error_msg = str(e).lower()
+                if '429' in error_msg or 'quota' in error_msg or 'exhausted' in error_msg:
+                    return "Error: Your API quota limit has been exceeded. Please check your API plan or try again later."
+                
                 logger.warning(f"LLM API error (attempt {attempt + 1}/3): {e}")
                 if attempt == 2:
                     logger.error("Max retries reached for LLM API.")
@@ -177,6 +181,11 @@ Keep your answers accurate, concise, and focused on the code."""
                             seen.add(key)
                 return
             except Exception as e:
+                error_msg = str(e).lower()
+                if '429' in error_msg or 'quota' in error_msg or 'exhausted' in error_msg:
+                    yield "\n\n*Error: Your API quota limit has been exceeded. Please check your API plan or try again later.*"
+                    return
+                
                 logger.warning(f"LLM API streaming error (attempt {attempt + 1}/3): {e}")
                 if attempt == 2:
                     logger.error("Max retries reached for LLM streaming API.")
@@ -248,6 +257,11 @@ Tree:\n{tree}\nDependencies:\n{deps}'''
                         yield chunk.text
                 return
             except Exception as e:
+                error_msg = str(e).lower()
+                if '429' in error_msg or 'quota' in error_msg or 'exhausted' in error_msg:
+                    yield "\n\n*Error: Your API quota limit has been exceeded. Please check your API plan or try again later.*"
+                    return
+                    
                 logger.warning(f"LLM API overview streaming error (attempt {attempt + 1}/3): {e}")
                 if attempt == 2:
                     logger.error("Max retries reached for LLM API.")
@@ -295,7 +309,11 @@ Return the response in valid JSON format EXACTLY like this:
                         cache.set(hash_key, {"explanation": finding.explanation, "fix_suggestion": finding.fix_suggestion})
                     except Exception as e:
                         logger.error(f"Error explaining HIGH finding: {e}")
-                        finding.explanation = "Explanation unavailable due to API timeout or error."
+                        error_msg = str(e).lower()
+                        if '429' in error_msg or 'quota' in error_msg or 'exhausted' in error_msg:
+                            finding.explanation = "API quota limit exceeded. Please check your API plan."
+                        else:
+                            finding.explanation = "Explanation unavailable due to API timeout or error."
 
                 elif finding.severity in [FindingSeverity.MEDIUM, FindingSeverity.LOW]:
                     prompt = f"""You are a security and static analysis expert.
@@ -315,7 +333,11 @@ Message: {finding.message}"""
                         cache.set(hash_key, {"explanation": finding.explanation})
                     except Exception as e:
                         logger.error(f"Error explaining MEDIUM/LOW finding: {e}")
-                        finding.explanation = "Explanation unavailable."
+                        error_msg = str(e).lower()
+                        if '429' in error_msg or 'quota' in error_msg or 'exhausted' in error_msg:
+                            finding.explanation = "API quota limit exceeded."
+                        else:
+                            finding.explanation = "Explanation unavailable."
                         
         await asyncio.gather(*(explain_one(f) for f in findings))
         return findings

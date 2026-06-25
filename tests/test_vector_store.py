@@ -6,9 +6,13 @@ from core.embedder import Embedder
 from models.response_models import CodeChunk, ChunkMetadata
 from config import settings
 
-def test_vector_store():
+def test_vector_store(monkeypatch):
     print("--- Testing FAISS Vector Store ---")
     session_id = "test_faiss_session"
+    
+    def mock_embed_chunks(self, chunks):
+        return [(c, np.random.rand(3072).astype(np.float32)) for c in chunks]
+    monkeypatch.setattr("core.embedder.Embedder.embed_chunks", mock_embed_chunks)
     
     # 1. Create 50 dummy chunks
     chunks = []

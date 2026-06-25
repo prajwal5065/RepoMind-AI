@@ -4,11 +4,14 @@ import { MessageSquare, FileText, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Editor from '@monaco-editor/react';
 import { chatStreamUrl } from '@/utils/api';
+import { loadSession, saveMessages, loadMessages } from '@/utils/session';
 
 export default function Chat() {
   const router = useRouter();
-  const { session } = router.query;
-  
+  const { session: sessionFromQuery } = router.query;
+
+  // Resolve session: prefer URL query param, fall back to localStorage
+  const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,6 +26,34 @@ export default function Chat() {
     "How does auth work?",
     "What is the DB schema?"
   ];
+
+  // ── Restore session and message history on mount ──────────────────────────
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    let resolvedSession = sessionFromQuery;
+    if (!resolvedSession) {
+      const saved = loadSession();
+      if (saved?.sessionId) {
+        resolvedSession = saved.sessionId;
+        // Update URL without reloading so the back button still works
+        router.replace(`/chat?session=${resolvedSession}`, undefined, { shallow: true });
+      }
+    }
+
+    if (resolvedSession) {
+      setSession(resolvedSession);
+      const history = loadMessages(resolvedSession);
+      if (history.length > 0) setMessages(history);
+    }
+  }, [router.isReady, sessionFromQuery]);
+
+  // ── Persist messages whenever they change ─────────────────────────────────
+  useEffect(() => {
+    if (session && messages.length > 0) {
+      saveMessages(session, messages);
+    }
+  }, [session, messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -95,8 +126,51 @@ export default function Chat() {
     }
   };
 
+  const isQuotaError = (text) => {
+    const t = text.toLowerCase();
+    return t.includes('quota') || t.includes('exhausted') || t.includes('api quota limit') || t.includes('rate limit');
+  };
+
+  const isApiError = (text) => {
+    return text.startsWith('*Error:') || text.startsWith('Error:');
+  };
+
   const renderMessage = (msg) => {
     if (msg.role === 'user') return msg.content;
+    
+    // Quota / rate-limit banner
+    if (isQuotaError(msg.content)) {
+      return (
+        <div className="border border-[var(--color-warning)] bg-amber-950/30 p-md space-y-sm">
+          <div className="flex items-center gap-sm text-[var(--color-warning)]">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <span className="text-label-uppercase font-bold">API Quota Exceeded</span>
+          </div>
+          <p className="text-body-sm text-amber-200">
+            Your Gemini API quota has been exhausted. Your request could not be completed.
+          </p>
+          <div className="text-body-sm text-[var(--color-muted)] space-y-1">
+            <p>To resolve this:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Wait for your quota to reset (usually resets daily)</li>
+              <li>Upgrade your Google AI Studio plan for higher limits</li>
+              <li>Check your usage at <span className="text-amber-300 font-mono text-xs">aistudio.google.com</span></li>
+            </ul>
+          </div>
+        </div>
+      );
+    }
+
+    // Generic error banner
+    if (isApiError(msg.content)) {
+      const cleanMsg = msg.content.replace(/^\*?Error:\s*/i, '').replace(/\*$/,'');
+      return (
+        <div className="border border-[var(--color-m-red)] bg-red-950/30 p-md flex items-start gap-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-m-red)] mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+          <p className="text-body-sm text-red-300">{cleanMsg}</p>
+        </div>
+      );
+    }
     
     const parts = msg.content.split('**Sources Cited:**');
     const mainText = parts[0];
@@ -163,6 +237,14 @@ export default function Chat() {
     if (path.endsWith('.html')) return 'html';
     return 'plaintext';
   };
+
+  if (!session) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-[var(--color-muted)] text-body-md">
+        No active session. <a href="/" className="ml-2 underline text-white">Upload a repository first.</a>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">

@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, GitBranch, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { UploadCloud, GitBranch, CheckCircle, Loader2, AlertCircle, ArrowRight, FolderOpen } from 'lucide-react';
 import { uploadRepo, parseRepo, indexRepo, cloneRepo } from '@/utils/api';
+import { saveSession, loadSession, clearSession } from '@/utils/session';
 
 // Lightweight client-side URL validator (mirrors backend rules)
 const GITHUB_LIKE = /^https:\/\/(github\.com|gitlab\.com|bitbucket\.org)\/([\w\-.]+\/[\w\-.]+?)(?:\.git)?\/?$/i;
@@ -29,6 +30,12 @@ export default function Home() {
   const [status, setStatus]     = useState('idle');   // idle | step0..3 | error
   const [currentStep, setStep]  = useState(-1);
   const [errorMsg, setErrorMsg] = useState('');
+  const [existingSession, setExistingSession] = useState(null);
+
+  useEffect(() => {
+    const s = loadSession();
+    if (s?.sessionId) setExistingSession(s);
+  }, []);
 
   /* ── dropzone ─────────────────────────────────────────────── */
   const onDrop = useCallback((accepted) => {
@@ -54,26 +61,28 @@ export default function Home() {
   };
 
   /* ── shared pipeline (parse → index → redirect) ─────────── */
-  const runPipeline = async (sessionId) => {
+  const runPipeline = async (sessionId, meta = {}) => {
     setStep(1);
     await parseRepo(sessionId);
     setStep(2);
     await indexRepo(sessionId);
     setStep(3);
     setStatus('done');
+    saveSession(sessionId, meta);
     setTimeout(() => router.push(`/chat?session=${sessionId}`), 900);
   };
 
   /* ── ZIP flow ────────────────────────────────────────────── */
   const handleZipProcess = async () => {
     if (!file) return;
+    clearSession();
     setStatus('running');
     setErrorMsg('');
     try {
       const sessionId = `sess_${Date.now()}`;
       setStep(0);
       await uploadRepo(file, sessionId);
-      await runPipeline(sessionId);
+      await runPipeline(sessionId, { type: 'zip', label: file.name });
     } catch (err) {
       setStatus('error');
       setErrorMsg(err.response?.data?.detail || err.message || 'An unexpected error occurred.');
@@ -85,12 +94,13 @@ export default function Home() {
   const handleGitProcess = async () => {
     const err = validateGitUrl(gitUrl);
     if (err) { setUrlError(err); return; }
+    clearSession();
     setStatus('running');
     setErrorMsg('');
     try {
       setStep(0);
       const data = await cloneRepo(gitUrl);
-      await runPipeline(data.session_id);
+      await runPipeline(data.session_id, { type: 'git', label: gitUrl, url: gitUrl });
     } catch (err) {
       setStatus('error');
       setErrorMsg(err.response?.data?.detail || err.message || 'An unexpected error occurred.');
@@ -105,6 +115,33 @@ export default function Home() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-[var(--spacing-xl)] min-h-full">
       <div className="max-w-2xl w-full space-y-[var(--spacing-xl)]">
+
+        {/* ── Existing session banner ──────────────────────── */}
+        {existingSession && !isRunning && (
+          <div className="border border-[var(--color-hairline)] bg-[var(--color-surface-card)] p-lg flex items-start justify-between gap-md">
+            <div className="flex items-start gap-md">
+              <FolderOpen size={20} className="text-[var(--color-m-blue-light)] mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-label-uppercase text-[var(--color-muted)]">Previous Session Active</p>
+                <p className="text-title-sm text-white mt-1 truncate max-w-xs">{existingSession.label || existingSession.sessionId}</p>
+              </div>
+            </div>
+            <div className="flex gap-sm flex-shrink-0">
+              <button
+                onClick={() => router.push(`/chat?session=${existingSession.sessionId}`)}
+                className="flex items-center gap-2 px-md py-sm border border-[var(--color-hairline)] text-label-uppercase hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Continue <ArrowRight size={14} />
+              </button>
+              <button
+                onClick={() => { clearSession(); setExistingSession(null); }}
+                className="px-md py-sm text-label-uppercase text-[var(--color-muted)] hover:text-[var(--color-m-red)] transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Hero ─────────────────────────────────────────── */}
         <div className="text-center space-y-[var(--spacing-sm)]">
