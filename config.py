@@ -2,6 +2,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     GEMINI_API_KEY: str = "your_gemini_api_key_here"
+    GROQ_API_KEY: str = ""                    # Groq API key (starts with gsk_)
+    DEFAULT_LLM_PROVIDER: str = "groq"       # "groq" | "gemini"
     FAISS_INDEX_PATH: str = "data/faiss_index"
     UPLOAD_DIR: str = "data/uploads"
 

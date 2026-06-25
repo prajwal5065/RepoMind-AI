@@ -44,6 +44,7 @@ rate_limiter = RateLimiter(requests=20, window=60)
 class ChatRequest(BaseModel):
     session_id: str
     message: str
+    provider: str = ""   # "grok" | "gemini" | "" (uses server default)
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +127,7 @@ async def chat_endpoint(request: ChatRequest):
         )
 
     # ── Step 3: stream the LLM answer ────────────────────────────────────
-    llm = LLMClient()
+    llm = LLMClient(provider=request.provider or None)
 
     async def generate():
         try:

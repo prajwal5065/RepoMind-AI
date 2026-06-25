@@ -1,5 +1,17 @@
 
-const SESSION_KEY = 'repomind_session';
+const SESSION_KEY  = 'repomind_session';
+const PROVIDER_KEY = 'repomind_llm_provider';
+
+// ── LLM Provider ─────────────────────────────────────────────────────────────
+export function saveLLMProvider(provider) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PROVIDER_KEY, provider);
+}
+
+export function loadLLMProvider() {
+  if (typeof window === 'undefined') return 'groq';
+  return localStorage.getItem(PROVIDER_KEY) || 'groq';
+}
 
 export function saveSession(sessionId, meta = {}) {
   if (typeof window === 'undefined') return;

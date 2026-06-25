@@ -1,7 +1,7 @@
 import os
 import re
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 
 from analysis.static_analyzer import StaticAnalyzer
@@ -19,8 +19,9 @@ router = APIRouter()
 llm_client = LLMClient()
 
 @router.get("/analyze/{session_id}", response_model=List[Finding])
-async def analyze_repository(session_id: str):
+async def analyze_repository(session_id: str, request: Request):
     logger.info(f"Analysis request received for session: {session_id}")
+    provider = request.headers.get("X-LLM-Provider", "") or ""
     try:
         if not re.match(r'^[\w-]+$', session_id):
             logger.error("Invalid session ID format")
@@ -62,7 +63,7 @@ async def analyze_repository(session_id: str):
         # Use LLM to explain HIGH severity issues and 1-line for MEDIUM/LOW
         logger.info("LLM explanation started")
         if all_findings:
-            all_findings = await llm_client.explain_findings(all_findings, repo_map)
+            all_findings = await LLMClient(provider=provider or None).explain_findings(all_findings, repo_map)
         logger.info("LLM explanation completed")
 
         cache.set(cache_key, all_findings)

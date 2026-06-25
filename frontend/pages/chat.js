@@ -4,7 +4,7 @@ import { MessageSquare, FileText, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import Editor from '@monaco-editor/react';
 import { chatStreamUrl } from '@/utils/api';
-import { loadSession, saveMessages, loadMessages } from '@/utils/session';
+import { loadSession, saveMessages, loadMessages, loadLLMProvider } from '@/utils/session';
 
 export default function Chat() {
   const router = useRouter();
@@ -15,11 +15,20 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState('groq');
   
   const [activeFile, setActiveFile] = useState(null);
   const [fileContent, setFileContent] = useState('// Select a source file to view its contents');
 
   const messagesEndRef = useRef(null);
+
+  // Sync provider from localStorage (updates when Layout toggle changes)
+  useEffect(() => {
+    setProvider(loadLLMProvider());
+    const onStorage = () => setProvider(loadLLMProvider());
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   
   const suggestions = [
     "Explain this project",
@@ -77,7 +86,7 @@ export default function Chat() {
       const response = await fetch(chatStreamUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: session, message: text })
+        body: JSON.stringify({ session_id: session, message: text, provider })
       });
 
       // Handle non-200 errors before touching the stream
@@ -147,14 +156,13 @@ export default function Chat() {
             <span className="text-label-uppercase font-bold">API Quota Exceeded</span>
           </div>
           <p className="text-body-sm text-amber-200">
-            Your Gemini API quota has been exhausted. Your request could not be completed.
+            {msg.content.replace(/^\*?Error:\s*/i, '').replace(/\*$/,'')}
           </p>
           <div className="text-body-sm text-[var(--color-muted)] space-y-1">
             <p>To resolve this:</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Wait for your quota to reset (usually resets daily)</li>
-              <li>Upgrade your Google AI Studio plan for higher limits</li>
-              <li>Check your usage at <span className="text-amber-300 font-mono text-xs">aistudio.google.com</span></li>
+              <li>Wait for your quota to reset or add billing credits</li>
+              <li>Switch to the other provider in the left sidebar settings</li>
             </ul>
           </div>
         </div>

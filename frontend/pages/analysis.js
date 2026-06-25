@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Shield, Code, FileText, Download, AlertTriangle, AlertCircle, PlusCircle } from 'lucide-react';
 import { getAnalysis, getDocs } from '@/utils/api';
-import { loadSession, clearSession } from '@/utils/session';
+import { loadSession, clearSession, loadLLMProvider } from '@/utils/session';
 import ReactMarkdown from 'react-markdown';
 
 export default function Analysis() {
@@ -15,8 +15,16 @@ export default function Analysis() {
   const [docs, setDocs] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [loadingStep, setLoadingStep] = useState(0);   // 0-4
-  const [loadingPct, setLoadingPct] = useState(0);    // 0-100
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [loadingPct, setLoadingPct] = useState(0);
+  const [provider, setProvider] = useState('groq');
+
+  useEffect(() => {
+    setProvider(loadLLMProvider());
+    const onStorage = () => setProvider(loadLLMProvider());
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const LOADING_STEPS = [
     { label: 'Scanning repository files',   pct: 10 },
@@ -71,8 +79,8 @@ export default function Analysis() {
         });
 
         const [analysisData, docsData] = await Promise.all([
-          getAnalysis(session),
-          getDocs(session).catch(() => null)
+          getAnalysis(session, provider),
+          getDocs(session, provider).catch(() => null)
         ]);
 
         cancelled = true;

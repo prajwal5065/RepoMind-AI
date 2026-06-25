@@ -28,13 +28,17 @@ export const indexRepo = async (sessionId) => {
   return response.data;
 };
 
-export const getAnalysis = async (sessionId) => {
-  const response = await api.get(`/analyze/${sessionId}`);
+export const getAnalysis = async (sessionId, provider = '') => {
+  const response = await api.get(`/analyze/${sessionId}`, {
+    headers: provider ? { 'X-LLM-Provider': provider } : {},
+  });
   return response.data;
 };
 
-export const getDocs = async (sessionId) => {
-  const response = await api.post(`/docs/${sessionId}`);
+export const getDocs = async (sessionId, provider = '') => {
+  const response = await api.post(`/docs/${sessionId}`, {}, {
+    headers: provider ? { 'X-LLM-Provider': provider } : {},
+  });
   return response.data;
 };
 
