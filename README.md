@@ -646,8 +646,6 @@ Once you've uploaded a repository, try these in the chat:
 
 ## 🧩 Challenges Solved
 
-> [!NOTE]
-> These are real engineering challenges tackled during development.
 
 **1. Code-Aware Chunking**
 Standard text chunking destroys code semantics. RepoMind uses AST-aware chunking that respects function and class boundaries, ensuring retrieved context is always syntactically complete and meaningful.
