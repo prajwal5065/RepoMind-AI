@@ -614,14 +614,18 @@ Once you've uploaded a repository, try these in the chat:
 <tr>
 <td align="center" width="50%">
 
-**Upload Page**
+**📤 Upload Page**
 
-*Drag and drop a ZIP or paste a GitHub URL to analyze any repository.*
+<img src="./screenshots/upload.png" alt="Upload Page" width="100%"/>
+
+*Drag & drop a ZIP or paste a GitHub URL to start analyzing any repository.*
 
 </td>
 <td align="center" width="50%">
 
-**Repository Chat**
+**💬 Repository Chat**
+
+<img src="./screenshots/chat.png" alt="Chat Interface" width="100%"/>
 
 *Ask natural language questions and get code-aware answers with source references.*
 
@@ -630,14 +634,16 @@ Once you've uploaded a repository, try these in the chat:
 <tr>
 <td align="center" width="50%">
 
-**Analysis Dashboard**
+**📊 Analysis Dashboard**
 
-*View static analysis results, security vulnerabilities, and code quality metrics.*
+<img src="./screenshots/analysis.png" alt="Analysis Dashboard" width="100%"/>
+
+*View static analysis results, security scan findings, and code quality metrics.*
 
 </td>
 <td align="center" width="50%">
 
-**LLM Provider Switching**
+**🤖 Dual LLM Providers**
 
 *Switch between Google Gemini and Groq Llama on the fly via the sidebar.*
 
