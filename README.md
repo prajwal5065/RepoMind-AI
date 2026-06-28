@@ -494,8 +494,7 @@ UPLOAD_DIR=data/uploads
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-> [!WARNING]
-> **Never commit your `.env` file.** It is included in `.gitignore` by default. Use `.env.example` as a safe template to share with collaborators.
+
 
 <br/>
 
