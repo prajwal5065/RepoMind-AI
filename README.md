@@ -1,29 +1,3 @@
-<div align="center">
-
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=RepoMind%20AI&fontSize=80&fontColor=fff&animation=twinkling&fontAlignY=35&desc=AI-Powered%20Software%20Engineering%20Assistant&descAlignY=60&descSize=20" width="100%"/>
-
-<br/>
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-16+-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector%20DB-FF6B6B?style=for-the-badge&logo=meta&logoColor=white)](https://faiss.ai)
-[![Gemini](https://img.shields.io/badge/Google%20Gemini-AI-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blueviolet?style=for-the-badge)](CONTRIBUTING.md)
-
-<br/>
-
-> **Chat with any GitHub repository. Understand codebases at the speed of thought.**
-
-[**🚀 Get Started**](#-installation) · [**📖 Documentation**](#-overview) · [**🎯 Features**](#-features) · [**🤝 Contribute**](#-contributing)
-
-<br/>
-
-</div>
-
----
 
 ## 📌 Overview
 
@@ -520,8 +494,7 @@ UPLOAD_DIR=data/uploads
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-> [!WARNING]
-> **Never commit your `.env` file.** It is included in `.gitignore` by default. Use `.env.example` as a safe template to share with collaborators.
+
 
 <br/>
 
@@ -679,8 +652,6 @@ Once you've uploaded a repository, try these in the chat:
 
 ## 🧩 Challenges Solved
 
-> [!NOTE]
-> These are real engineering challenges tackled during development.
 
 **1. Code-Aware Chunking**
 Standard text chunking destroys code semantics. RepoMind uses AST-aware chunking that respects function and class boundaries, ensuring retrieved context is always syntactically complete and meaningful.
@@ -716,91 +687,3 @@ Running Pylint, Flake8, MyPy, Bandit, and Semgrep concurrently without conflicts
 
 <br/>
 
----
-
-## 🤝 Contributing
-
-Contributions are what make open source amazing! Any contribution you make is **greatly appreciated**.
-
-### How to Contribute
-
-1. **Fork** the repository
-2. **Create** a feature branch
-   ```bash
-   git checkout -b feature/AmazingFeature
-   ```
-3. **Commit** your changes
-   ```bash
-   git commit -m "feat: add AmazingFeature"
-   ```
-4. **Push** to your branch
-   ```bash
-   git push origin feature/AmazingFeature
-   ```
-5. Open a **Pull Request**
-
-### Contribution Guidelines
-
-- Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification
-- Add tests for new features where applicable
-- Update documentation to reflect your changes
-- Ensure all existing tests pass before submitting a PR
-
-### Good First Issues
-
-Look for issues tagged with `good first issue` or `help wanted` on the Issues page.
-
-<br/>
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2026 Prajwal
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-```
-
-<br/>
-
----
-
-## 📬 Contact
-
-<div align="center">
-
-**Prajwal** — Building AI-powered developer tools
-
-[![GitHub](https://img.shields.io/badge/GitHub-prajwal5065-181717?style=for-the-badge&logo=github)](https://github.com/prajwal5065)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/prajwal5065)
-
-**Project Link**: https://github.com/prajwal5065/RepoMind-AI
-
-<br/>
-
-*If you found this project useful, please consider giving it a ⭐ — it helps a lot!*
-
-</div>
-
----
-
-<div align="center">
-
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" width="100%"/>
-
-**Built with ❤️ and a lot of ☕ by [Prajwal](https://github.com/prajwal5065)**
-
-</div>
