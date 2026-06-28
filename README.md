@@ -1,29 +1,3 @@
-<div align="center">
-
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=RepoMind%20AI&fontSize=80&fontColor=fff&animation=twinkling&fontAlignY=35&desc=AI-Powered%20Software%20Engineering%20Assistant&descAlignY=60&descSize=20" width="100%"/>
-
-<br/>
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-16+-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector%20DB-FF6B6B?style=for-the-badge&logo=meta&logoColor=white)](https://faiss.ai)
-[![Gemini](https://img.shields.io/badge/Google%20Gemini-AI-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-blueviolet?style=for-the-badge)](CONTRIBUTING.md)
-
-<br/>
-
-> **Chat with any GitHub repository. Understand codebases at the speed of thought.**
-
-[**🚀 Get Started**](#-installation) · [**📖 Documentation**](#-overview) · [**🎯 Features**](#-features) · [**🤝 Contribute**](#-contributing)
-
-<br/>
-
-</div>
-
----
 
 ## 📌 Overview
 
