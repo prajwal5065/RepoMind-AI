@@ -1,13 +1,13 @@
 import os
 import shutil
 import time
-from typing import Dict, List
+from typing import Annotated, Dict, List
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, BackgroundTasks
 
 from utils.logger import get_logger
 from utils.file_utils import extract_zip, list_files
-from utils.validators import validate_session_id
+from utils.validators import valid_session_id, ValidSessionId, safe_join
 from security.auth import verify_api_key
 from core.repo_scanner import RepoScanner
 from core.chunker import chunk_file
@@ -20,14 +20,14 @@ from utils.cache import cache
 logger = get_logger(__name__)
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
+
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # In-memory storage for chunks keyed by session_id
 SESSION_CHUNKS: Dict[str, List[CodeChunk]] = {}
 
 @router.delete('/session/{session_id}')
-async def delete_session(session_id: str):
-    session_id = validate_session_id(session_id)
+async def delete_session(session_id: ValidSessionId):
 
     upload_dir = os.path.join(settings.UPLOAD_DIR, session_id)
     index_dir = os.path.join(settings.FAISS_INDEX_PATH, session_id)
@@ -41,8 +41,10 @@ async def delete_session(session_id: str):
     return {'status': 'deleted', 'session_id': session_id}
 
 @router.post("/upload")
-async def upload_repo(session_id: str = Form(...), file: UploadFile = File(...)):
-    session_id = validate_session_id(session_id)
+async def upload_repo(
+    session_id: Annotated[str, Depends(valid_session_id)] = Form(...),
+    file: UploadFile = File(...),
+):
 
     if not file.filename.endswith('.zip'):
         raise HTTPException(status_code=400, detail="Only .zip files are allowed")
@@ -93,8 +95,7 @@ async def upload_repo(session_id: str = Form(...), file: UploadFile = File(...))
                 pass
 
 @router.post("/parse/{session_id}", response_model=ParseSummary)
-async def parse_repo(session_id: str, background_tasks: BackgroundTasks):
-    session_id = validate_session_id(session_id)
+async def parse_repo(session_id: ValidSessionId, background_tasks: BackgroundTasks):
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
     if not os.path.exists(session_dir):
@@ -145,8 +146,7 @@ def get_embedder():
     return embedder_instance
 
 @router.post("/index/{session_id}", response_model=IndexSummary)
-async def index_repo(session_id: str):
-    session_id = validate_session_id(session_id)
+async def index_repo(session_id: ValidSessionId):
     start_time = time.time()
     
     try:

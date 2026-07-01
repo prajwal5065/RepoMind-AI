@@ -10,7 +10,7 @@ from api.upload import get_embedder
 from core.repo_scanner import RepoScanner
 from config import settings
 from utils.logger import get_logger
-from utils.validators import validate_session_id
+from utils.validators import valid_session_id
 from security.auth import verify_api_key
 
 logger = get_logger(__name__)
@@ -104,7 +104,9 @@ def _load_context(session_id: str, message: str, is_overview: bool):
 )
 async def chat_endpoint(request: ChatRequest):
     # ── Step 0: validate session_id from the request body ───────────────
-    validate_session_id(request.session_id)
+    # session_id comes from the JSON body (not a path param), so we
+    # cannot use Depends() here — explicit call is required.
+    valid_session_id(request.session_id)
 
     # ── Step 1: validate session exists ──────────────────────────────────
     session_dir = os.path.join(settings.UPLOAD_DIR, request.session_id, "extracted")

@@ -135,11 +135,17 @@ class TestSessionIdValidation:
 
     def test_valid_session_id_passes_validation(self):
         """A valid session_id should not be rejected at the validation stage."""
-        from utils.validators import validate_session_id
+        from utils.validators import valid_session_id
         # Should not raise
-        assert validate_session_id("git_abcdef123456") == "git_abcdef123456"
-        assert validate_session_id("a" * 8) == "a" * 8
-        assert validate_session_id("a" * 64) == "a" * 64
+        assert valid_session_id("git_abcdef123456") == "git_abcdef123456"
+        assert valid_session_id("a" * 8) == "a" * 8
+        assert valid_session_id("a" * 64) == "a" * 64
+
+    def test_valid_session_id_rejects_at_depends_layer(self):
+        """FastAPI must reject invalid session_ids before the handler body runs."""
+        # If the Depends() is wired correctly the response is 400, not 404/500
+        resp = client.get("/api/repo-map/../../etc/passwd", headers=AUTH_HEADERS)
+        assert resp.status_code == 400
 
 
 # ============================================================================

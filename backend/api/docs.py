@@ -6,7 +6,7 @@ from core.repo_scanner import RepoScanner
 from core.llm_client import LLMClient
 from core.doc_generator import DocGenerator
 from utils.cache import cache
-from utils.validators import validate_session_id
+from utils.validators import ValidSessionId
 from security.auth import verify_api_key
 from config import settings
 from models.response_models import ProjectDoc
@@ -16,8 +16,7 @@ llm_client = LLMClient()
 doc_generator = DocGenerator(llm_client)
 
 @router.post("/docs/{session_id}", response_model=ProjectDoc)
-async def generate_docs(session_id: str):
-    session_id = validate_session_id(session_id)
+async def generate_docs(session_id: ValidSessionId):
 
     cache_key = f"{session_id}:docs"
     cached_docs = cache.get(cache_key)
@@ -51,7 +50,7 @@ async def generate_docs(session_id: str):
     return project_doc
 
 @router.get("/docs/{session_id}/export", response_class=PlainTextResponse)
-async def export_docs(session_id: str):
+async def export_docs(session_id: ValidSessionId):
     cache_key = f"{session_id}:docs"
     cached_docs = cache.get(cache_key)
     if not cached_docs:

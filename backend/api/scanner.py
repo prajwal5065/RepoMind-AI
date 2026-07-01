@@ -4,16 +4,15 @@ from core.repo_scanner import RepoScanner
 from models.response_models import RepoMap
 from config import settings
 from utils.logger import get_logger
-from utils.validators import validate_session_id, safe_join
+from utils.validators import ValidSessionId, safe_join
 from security.auth import verify_api_key
 
 logger = get_logger(__name__)
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 @router.get("/repo-map/{session_id}", response_model=RepoMap)
-def get_repo_map(session_id: str):
+def get_repo_map(session_id: ValidSessionId):
     """Returns the RepoMap for a given session."""
-    session_id = validate_session_id(session_id)
 
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
@@ -30,9 +29,8 @@ def get_repo_map(session_id: str):
         raise HTTPException(status_code=500, detail="Internal server error during repository scanning")
 
 @router.get("/dependencies/{session_id}")
-def get_dependencies(session_id: str):
+def get_dependencies(session_id: ValidSessionId):
     """Returns the dependency graph for a given session."""
-    session_id = validate_session_id(session_id)
 
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
@@ -49,10 +47,9 @@ def get_dependencies(session_id: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/file/{session_id}")
-def get_file_content(session_id: str, path: str):
-    session_id = validate_session_id(session_id)
+def get_file_content(session_id: ValidSessionId, path: str):
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
-    # safe_join resolves the path and blocks traversal with a 403
+    # safe_join resolves realpath and enforces the + os.sep guard — 403 on escape
     file_path = safe_join(session_dir, path)
         
     if not os.path.exists(file_path):

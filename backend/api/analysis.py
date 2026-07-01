@@ -12,7 +12,7 @@ from models.response_models import Finding
 from config import settings
 from utils.cache import cache
 from utils.logger import get_logger
-from utils.validators import validate_session_id
+from utils.validators import ValidSessionId
 from security.auth import verify_api_key
 
 logger = get_logger(__name__)
@@ -26,8 +26,7 @@ llm_client = LLMClient()
     response_model=List[Finding],
     dependencies=[Depends(verify_api_key)],
 )
-async def analyze_repository(session_id: str, request: Request):
-    session_id = validate_session_id(session_id)
+async def analyze_repository(session_id: ValidSessionId, request: Request):
     logger.info(f"Analysis request received for session: {session_id}")
     provider = request.headers.get("X-LLM-Provider", "") or ""
 
