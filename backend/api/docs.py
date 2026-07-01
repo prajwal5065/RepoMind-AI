@@ -1,23 +1,23 @@
 import os
-import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
 from core.repo_scanner import RepoScanner
 from core.llm_client import LLMClient
 from core.doc_generator import DocGenerator
 from utils.cache import cache
+from utils.validators import validate_session_id
+from security.auth import verify_api_key
 from config import settings
 from models.response_models import ProjectDoc
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 llm_client = LLMClient()
 doc_generator = DocGenerator(llm_client)
 
 @router.post("/docs/{session_id}", response_model=ProjectDoc)
 async def generate_docs(session_id: str):
-    if not re.match(r'^[\w-]+$', session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID")
+    session_id = validate_session_id(session_id)
 
     cache_key = f"{session_id}:docs"
     cached_docs = cache.get(cache_key)

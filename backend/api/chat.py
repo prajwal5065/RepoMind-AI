@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -10,9 +10,11 @@ from api.upload import get_embedder
 from core.repo_scanner import RepoScanner
 from config import settings
 from utils.logger import get_logger
+from utils.validators import validate_session_id
+from security.auth import verify_api_key
 
 logger = get_logger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +103,9 @@ def _load_context(session_id: str, message: str, is_overview: bool):
     tags=["Chat"],
 )
 async def chat_endpoint(request: ChatRequest):
+    # ── Step 0: validate session_id from the request body ───────────────
+    validate_session_id(request.session_id)
+
     # ── Step 1: validate session exists ──────────────────────────────────
     session_dir = os.path.join(settings.UPLOAD_DIR, request.session_id, "extracted")
     if not os.path.exists(session_dir):

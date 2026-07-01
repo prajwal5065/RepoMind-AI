@@ -3,15 +3,16 @@ import re
 import uuid
 import shutil
 import subprocess
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from config import settings
 from utils.logger import get_logger
 from utils.cache import cache
+from security.auth import verify_api_key
 
 logger = get_logger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 # Allowed URL patterns — only HTTPS public Git hosts.
 # This regex explicitly blocks local paths, file://, ssh://, git://, etc.

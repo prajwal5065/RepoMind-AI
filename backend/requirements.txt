@@ -1,14 +1,24 @@
-fastapi
-uvicorn
-python-dotenv
-pydantic
-pydantic-settings
-python-multipart
-faiss-cpu
-google-genai
-openai>=1.30.0
-pylint
-flake8
-mypy
-bandit
-semgrep
+# ── Production dependencies ────────────────────────────────────────────────
+# Pin exact versions to prevent supply-chain drift.
+# To upgrade: update version, run pip-audit, then re-test.
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-dotenv==1.0.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-multipart==0.0.12
+faiss-cpu==1.9.0
+google-genai==1.9.0
+openai==1.59.3
+python-jose[cryptography]==3.3.0
+python-json-logger==2.0.7
+
+# ── Development / CI only — DO NOT install in production Docker images ──────
+# pip install -r requirements-dev.txt
+# pylint
+# flake8
+# mypy
+# bandit
+# semgrep
+# pytest
+# httpx

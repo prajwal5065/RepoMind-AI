@@ -1,19 +1,19 @@
 import os
-import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from core.repo_scanner import RepoScanner
 from models.response_models import RepoMap
 from config import settings
 from utils.logger import get_logger
+from utils.validators import validate_session_id, safe_join
+from security.auth import verify_api_key
 
 logger = get_logger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 @router.get("/repo-map/{session_id}", response_model=RepoMap)
 def get_repo_map(session_id: str):
     """Returns the RepoMap for a given session."""
-    if not re.match(r'^[\w-]+$', session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID format")
+    session_id = validate_session_id(session_id)
 
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
@@ -32,8 +32,7 @@ def get_repo_map(session_id: str):
 @router.get("/dependencies/{session_id}")
 def get_dependencies(session_id: str):
     """Returns the dependency graph for a given session."""
-    if not re.match(r'^[\w-]+$', session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID format")
+    session_id = validate_session_id(session_id)
 
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
     
@@ -51,12 +50,10 @@ def get_dependencies(session_id: str):
 
 @router.get("/file/{session_id}")
 def get_file_content(session_id: str, path: str):
+    session_id = validate_session_id(session_id)
     session_dir = os.path.join(settings.UPLOAD_DIR, session_id, "extracted")
-    file_path = os.path.join(session_dir, path)
-    
-    # Ensure no path traversal
-    if not os.path.normpath(file_path).startswith(os.path.normpath(session_dir)):
-        raise HTTPException(status_code=403, detail="Access denied")
+    # safe_join resolves the path and blocks traversal with a 403
+    file_path = safe_join(session_dir, path)
         
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")

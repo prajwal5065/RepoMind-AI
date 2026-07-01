@@ -1,0 +1,52 @@
+# Docker build context exclusions
+# These files must NEVER be baked into a Docker image.
+
+# Secrets and local config
+.env
+*.env
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Test and CI artifacts
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local data (injected via volumes in prod, not baked in)
+data/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Frontend (not needed in backend image)
+frontend/
