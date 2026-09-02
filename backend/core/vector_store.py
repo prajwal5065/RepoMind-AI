@@ -72,8 +72,13 @@ class VectorStore:
                 logger.warning(f"Dimension mismatch for {session_id}: expected {self.embedding_dim}, got {loaded_index.d}. Index needs rebuilding.")
                 return False
             self.index = loaded_index
+            # nosec B301: chunks.pkl is only ever produced by this class's
+            # own save_index() call for this session — never uploaded or
+            # otherwise supplied by a client. session_id is validated by
+            # utils.validators before it ever reaches FAISS_INDEX_PATH, so
+            # this does not deserialize untrusted/attacker-controlled data.
             with open(chunks_path, 'rb') as f:
-                self.chunks = pickle.load(f)
+                self.chunks = pickle.load(f)  # nosec B301
             logger.info(f"Loaded FAISS index for session {session_id} with {self.index.ntotal} vectors")
             return True
         except Exception as e:
