@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, B
 from utils.logger import get_logger
 from utils.file_utils import extract_zip, list_files
 from utils.validators import valid_session_id, ValidSessionId, safe_join
+from utils.rate_limiter import RateLimiter
 from security.auth import verify_api_key
 from core.repo_scanner import RepoScanner
 from core.chunker import chunk_file
@@ -20,6 +21,10 @@ from utils.cache import cache
 logger = get_logger(__name__)
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
+# /api/upload is one of the two heaviest, most resource-intensive endpoints
+# (disk I/O + zip extraction), so it gets the same per-IP rate limiting
+# /api/chat already had. See SECURITY_AUDIT.md "Remaining Recommendations".
+upload_rate_limiter = RateLimiter(requests=10, window=60)
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
@@ -40,7 +45,7 @@ async def delete_session(session_id: ValidSessionId):
     
     return {'status': 'deleted', 'session_id': session_id}
 
-@router.post("/upload")
+@router.post("/upload", dependencies=[Depends(upload_rate_limiter)])
 async def upload_repo(
     session_id: Annotated[str, Depends(valid_session_id)] = Form(...),
     file: UploadFile = File(...),
