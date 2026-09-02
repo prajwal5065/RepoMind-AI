@@ -62,7 +62,7 @@ jobs:
           --ignore-vuln PYSEC-2026-2281
 
       - name: Run tests
-        run: pytest ../tests -v
+        run: python -m pytest ../tests -v
 
   frontend-build:
     name: Frontend — install & build
