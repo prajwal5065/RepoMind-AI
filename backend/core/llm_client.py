@@ -407,8 +407,11 @@ class LLMClient:
 
         async def explain_one(finding: Finding):
             async with sem:
+                # MD5 here is only used to derive a stable cache key from
+                # finding metadata — not for any security purpose — so it's
+                # explicitly marked as such to satisfy security scanners.
                 hash_key = (
-                    f"explanation:{hashlib.md5(f'{finding.tool}:{finding.file}:{finding.line}:{finding.message}'.encode()).hexdigest()}"
+                    f"explanation:{hashlib.md5(f'{finding.tool}:{finding.file}:{finding.line}:{finding.message}'.encode(), usedforsecurity=False).hexdigest()}"
                 )
                 cached = cache.get(hash_key)
                 if cached:
