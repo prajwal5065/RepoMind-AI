@@ -11,7 +11,7 @@ The /health endpoint is intentionally excluded from auth so monitoring
 tools can probe the service without credentials.
 """
 import secrets
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 from config import settings
 
