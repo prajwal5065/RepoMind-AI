@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, B
 
 from utils.logger import get_logger
 from utils.file_utils import extract_zip, list_files
-from utils.validators import valid_session_id, ValidSessionId, safe_join
+from utils.validators import valid_session_id, valid_session_id_form, ValidSessionId, safe_join
 from utils.rate_limiter import RateLimiter
 from security.auth import verify_api_key
 from core.repo_scanner import RepoScanner
@@ -47,7 +47,7 @@ async def delete_session(session_id: ValidSessionId):
 
 @router.post("/upload", dependencies=[Depends(upload_rate_limiter)])
 async def upload_repo(
-    session_id: Annotated[str, Depends(valid_session_id)] = Form(...),
+    session_id: Annotated[str, Depends(valid_session_id_form)],
     file: UploadFile = File(...),
 ):
 
@@ -89,6 +89,12 @@ async def upload_repo(
             "file_count": file_count,
             "root_path": extract_to
         }
+    except ValueError as ve:
+        # extract_zip() raises ValueError for zip-slip / path-traversal
+        # archive entries. That's a client input problem, not a server
+        # fault, so it belongs on 400 rather than 500.
+        logger.warning(f"Upload rejected: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Error processing upload: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during file processing")
