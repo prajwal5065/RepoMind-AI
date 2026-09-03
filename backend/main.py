@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
 
 from config import settings
@@ -66,6 +67,51 @@ async def lifespan(app: FastAPI):
 
 
 # ---------------------------------------------------------------------------
+# Security response headers
+# ---------------------------------------------------------------------------
+# Addresses SECURITY_AUDIT.md "Remaining Recommendations": add
+# Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, etc.
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        # This is a JSON API, not a page that renders third-party content,
+        # so a strict default-src covers it without breaking anything.
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+        if not settings.DEBUG:
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+        return response
+
+
+# ---------------------------------------------------------------------------
+# Request body size limit
+# ---------------------------------------------------------------------------
+# /api/upload already validates file size after reading the multipart body,
+# but nothing previously stopped an oversized request body from being
+# streamed into the app in the first place. This rejects it early based on
+# Content-Length, before any handler runs.
+MAX_REQUEST_BODY_BYTES = 60 * 1024 * 1024  # 60 MB — a little above the 50MB upload cap
+
+
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > MAX_REQUEST_BODY_BYTES:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request body too large."},
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
 # App instance
 # ---------------------------------------------------------------------------
 app = FastAPI(
@@ -90,6 +136,11 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type", "X-API-Key", "X-LLM-Provider"],
 )
+
+# Order matters: middlewares run outside-in on the request and inside-out
+# on the response. Adding these after CORS means they still wrap it.
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 # ---------------------------------------------------------------------------

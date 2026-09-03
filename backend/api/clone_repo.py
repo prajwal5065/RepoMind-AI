@@ -9,10 +9,16 @@ from pydantic import BaseModel
 from config import settings
 from utils.logger import get_logger
 from utils.cache import cache
+from utils.rate_limiter import RateLimiter
 from security.auth import verify_api_key
 
 logger = get_logger(__name__)
 router = APIRouter(dependencies=[Depends(verify_api_key)])
+
+# /api/clone-repo shells out to git and can run for up to
+# CLONE_TIMEOUT_SECONDS, so it gets the same per-IP rate limiting
+# /api/chat already had. See SECURITY_AUDIT.md "Remaining Recommendations".
+clone_rate_limiter = RateLimiter(requests=10, window=60)
 
 # Allowed URL patterns — only HTTPS public Git hosts.
 # This regex explicitly blocks local paths, file://, ssh://, git://, etc.
@@ -159,6 +165,7 @@ def _count_files(path: str) -> int:
         f"- Clone timeout: {CLONE_TIMEOUT_SECONDS} seconds.\n"
     ),
     tags=["Upload & Processing"],
+    dependencies=[Depends(clone_rate_limiter)],
 )
 async def clone_repo(request: CloneRequest):
     """

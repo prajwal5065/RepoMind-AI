@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 import os
-import time
 from core.llm_client import LLMClient
 from rag.retriever import Retriever
 from api.upload import get_embedder
@@ -11,6 +10,7 @@ from core.repo_scanner import RepoScanner
 from config import settings
 from utils.logger import get_logger
 from utils.validators import valid_session_id
+from utils.rate_limiter import RateLimiter
 from security.auth import verify_api_key
 
 logger = get_logger(__name__)
@@ -18,25 +18,8 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 
 # ---------------------------------------------------------------------------
-# Rate limiter
+# Rate limiter (shared implementation — see utils/rate_limiter.py)
 # ---------------------------------------------------------------------------
-class RateLimiter:
-    def __init__(self, requests: int, window: int):
-        self.requests = requests
-        self.window = window
-        self.clients: dict = {}
-
-    def __call__(self, request: Request):
-        client_ip = request.client.host if request.client else "unknown"
-        now = time.time()
-        self.clients.setdefault(client_ip, [])
-        # Evict old timestamps
-        self.clients[client_ip] = [t for t in self.clients[client_ip] if now - t < self.window]
-        if len(self.clients[client_ip]) >= self.requests:
-            raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
-        self.clients[client_ip].append(now)
-
-
 rate_limiter = RateLimiter(requests=20, window=60)
 
 
