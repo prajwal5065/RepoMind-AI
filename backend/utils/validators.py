@@ -24,7 +24,7 @@ import os
 import re
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Form, HTTPException
 
 # session_id: alphanumeric, hyphens, underscores, 8–64 chars.
 # Covers both UUID-style (upload) and git_<hex12> (clone) patterns.
@@ -47,6 +47,23 @@ def valid_session_id(session_id: str) -> str:
             detail="Invalid session ID format.",
         )
     return session_id
+
+
+def valid_session_id_form(session_id: Annotated[str, Form(...)]) -> str:
+    """
+    Same rule as valid_session_id(), for endpoints where session_id
+    arrives as a multipart Form field rather than a path segment
+    (currently only POST /upload).
+
+    Depends(valid_session_id) alone does not work here: FastAPI resolves
+    that dependency function's own `session_id` parameter according to
+    its own annotation, and a bare `session_id: str` with no path segment
+    of that name in the route defaults to a query parameter — so the
+    form-submitted value was silently never read, and every upload
+    (malicious or not) 422'd with "session_id missing in query" before
+    reaching the handler body at all.
+    """
+    return valid_session_id(session_id)
 
 
 # Convenience alias for use in ``Annotated`` type hints.

@@ -1,10 +1,18 @@
 import asyncio
+import pytest
 from core.llm_client import LLMClient
 from models.response_models import RepoMap, CodeChunk, ChunkMetadata
 
+@pytest.mark.anyio
 async def test_llm_stream():
     from config import settings
-    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "your-openai-api-key-here":
+    # NOTE: Settings has no OPENAI_API_KEY field (only GEMINI_API_KEY /
+    # GROQ_API_KEY are defined in config.py, even though `openai` is in
+    # requirements.txt) — using getattr() so this test skips gracefully
+    # instead of crashing with AttributeError when no real key is
+    # configured, which is what it always did in this test environment.
+    openai_key = getattr(settings, "OPENAI_API_KEY", None)
+    if not openai_key or openai_key == "your-openai-api-key-here":
         print("Skipping LLM test: No real OPENAI_API_KEY provided in .env.")
         return
         

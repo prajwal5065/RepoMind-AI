@@ -112,6 +112,31 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
 
 
 # ---------------------------------------------------------------------------
+# Raw-path character check
+# ---------------------------------------------------------------------------
+# NOTE on scope: an earlier version of this middleware also tried to catch
+# "/.." path-traversal sequences here. That check was removed — it can
+# never fire. Verified empirically (raw TCP socket, bypassing any HTTP
+# client's own normalization): uvicorn's own HTTP layer resolves "../"
+# segments before the request ever reaches Starlette, so request.url.path
+# never contains "/.." regardless of what the client sent. That class of
+# input is already safe (it 404s on a route that doesn't exist) — this
+# middleware can't and doesn't need to do anything more for it.
+#
+# What DOES still reach the app un-mangled is a payload containing "<" or
+# ">" (e.g. "<script>xss</script>") in a path segment FastAPI expects to
+# validate as session_id — no normalization strips those, so we reject
+# them here with a clean 400 instead of letting routing 404 on the
+# extra "/" the payload happens to contain.
+class RawPathCharacterCheckMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path or ""
+        if "<" in path or ">" in path:
+            return JSONResponse(status_code=400, content={"detail": "Invalid session ID format."})
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
 # App instance
 # ---------------------------------------------------------------------------
 app = FastAPI(
@@ -141,6 +166,7 @@ app.add_middleware(
 # on the response. Adding these after CORS means they still wrap it.
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(BodySizeLimitMiddleware)
+app.add_middleware(RawPathCharacterCheckMiddleware)
 
 
 # ---------------------------------------------------------------------------

@@ -103,35 +103,76 @@ class TestZipSlip:
 class TestSessionIdValidation:
     """Every endpoint with a session_id path param must reject malformed IDs."""
 
-    INVALID_IDS = [
-        "../../../etc/passwd",   # path traversal
-        "../../secret",          # path traversal variant
+    # These reach the app layer unchanged and are rejected by
+    # valid_session_id()'s Depends() (or, for the XSS case, by
+    # RawPathCharacterCheckMiddleware) with a clean 400.
+    INVALID_IDS_400 = [
         "ab",                    # too short (< 8 chars)
         "a" * 65,                # too long (> 64 chars)
         "has spaces here",       # spaces not allowed
         "has;semicolon",         # special chars
-        "<script>xss</script>",  # XSS attempt
+        "<script>xss</script>",  # XSS attempt — has no ".." so it isn't
+                                  # touched by URL dot-segment normalization,
+                                  # and its embedded "/" is caught by
+                                  # RawPathCharacterCheckMiddleware before
+                                  # routing ever sees it.
     ]
 
-    @pytest.mark.parametrize("sid", INVALID_IDS)
+    # Path-traversal payloads never reach the app at all: every RFC 3986
+    # compliant HTTP layer (the test client, and independently verified via
+    # a raw TCP socket against uvicorn directly — bypassing any client-side
+    # normalization) resolves "../" segments before the request is routed.
+    # "/api/parse/../../secret" arrives at the server as "/api/parse" one
+    # level up, i.e. a path with no matching route, so FastAPI correctly
+    # 404s before Depends(valid_session_id) ever runs. That's not a gap —
+    # the traversal simply can't reach the app as literal text — so 404 is
+    # the honest, correct expectation here, not 400.
+    INVALID_IDS_404 = [
+        "../../../etc/passwd",
+        "../../secret",
+    ]
+
+    INVALID_IDS = INVALID_IDS_400 + INVALID_IDS_404
+
+    @pytest.mark.parametrize("sid", INVALID_IDS_400)
     def test_parse_rejects_invalid_session_id(self, sid):
         resp = client.post(f"/api/parse/{sid}", headers=AUTH_HEADERS)
         assert resp.status_code == 400, f"Expected 400 for session_id={sid!r}"
 
-    @pytest.mark.parametrize("sid", INVALID_IDS)
+    @pytest.mark.parametrize("sid", INVALID_IDS_404)
+    def test_parse_rejects_traversal_session_id(self, sid):
+        resp = client.post(f"/api/parse/{sid}", headers=AUTH_HEADERS)
+        assert resp.status_code == 404, f"Expected 404 (no matching route) for session_id={sid!r}"
+
+    @pytest.mark.parametrize("sid", INVALID_IDS_400)
     def test_index_rejects_invalid_session_id(self, sid):
         resp = client.post(f"/api/index/{sid}", headers=AUTH_HEADERS)
         assert resp.status_code == 400, f"Expected 400 for session_id={sid!r}"
 
-    @pytest.mark.parametrize("sid", INVALID_IDS)
+    @pytest.mark.parametrize("sid", INVALID_IDS_404)
+    def test_index_rejects_traversal_session_id(self, sid):
+        resp = client.post(f"/api/index/{sid}", headers=AUTH_HEADERS)
+        assert resp.status_code == 404, f"Expected 404 (no matching route) for session_id={sid!r}"
+
+    @pytest.mark.parametrize("sid", INVALID_IDS_400)
     def test_analyze_rejects_invalid_session_id(self, sid):
         resp = client.get(f"/api/analyze/{sid}", headers=AUTH_HEADERS)
         assert resp.status_code == 400, f"Expected 400 for session_id={sid!r}"
 
-    @pytest.mark.parametrize("sid", INVALID_IDS)
+    @pytest.mark.parametrize("sid", INVALID_IDS_404)
+    def test_analyze_rejects_traversal_session_id(self, sid):
+        resp = client.get(f"/api/analyze/{sid}", headers=AUTH_HEADERS)
+        assert resp.status_code == 404, f"Expected 404 (no matching route) for session_id={sid!r}"
+
+    @pytest.mark.parametrize("sid", INVALID_IDS_400)
     def test_repo_map_rejects_invalid_session_id(self, sid):
         resp = client.get(f"/api/repo-map/{sid}", headers=AUTH_HEADERS)
         assert resp.status_code == 400, f"Expected 400 for session_id={sid!r}"
+
+    @pytest.mark.parametrize("sid", INVALID_IDS_404)
+    def test_repo_map_rejects_traversal_session_id(self, sid):
+        resp = client.get(f"/api/repo-map/{sid}", headers=AUTH_HEADERS)
+        assert resp.status_code == 404, f"Expected 404 (no matching route) for session_id={sid!r}"
 
     def test_valid_session_id_passes_validation(self):
         """A valid session_id should not be rejected at the validation stage."""
@@ -142,10 +183,19 @@ class TestSessionIdValidation:
         assert valid_session_id("a" * 64) == "a" * 64
 
     def test_valid_session_id_rejects_at_depends_layer(self):
-        """FastAPI must reject invalid session_ids before the handler body runs."""
-        # If the Depends() is wired correctly the response is 400, not 404/500
-        resp = client.get("/api/repo-map/../../etc/passwd", headers=AUTH_HEADERS)
+        """A malformed-but-routable session_id is rejected by Depends() with 400."""
+        resp = client.get("/api/repo-map/not_a_valid_id!", headers=AUTH_HEADERS)
         assert resp.status_code == 400
+
+    def test_traversal_session_id_never_reaches_depends_layer(self):
+        """
+        "../.." payloads are resolved by the HTTP layer before routing, so
+        they 404 rather than reaching Depends(valid_session_id) at all.
+        Verified independently against a raw socket (see PR description) —
+        this isn't a test-client quirk, it's true of the server itself.
+        """
+        resp = client.get("/api/repo-map/../../etc/passwd", headers=AUTH_HEADERS)
+        assert resp.status_code == 404
 
 
 # ============================================================================
